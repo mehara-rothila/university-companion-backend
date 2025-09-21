@@ -36,34 +36,32 @@ public class LostFoundController {
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "ACTIVE") String status) {
         
-        LostFoundItem.ItemType itemType = null;
-        if (type != null && !type.equals("all")) {
-            try {
-                itemType = LostFoundItem.ItemType.valueOf(type.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                return ResponseEntity.badRequest().build();
-            }
-        }
+        // Temporary mock data while we fix PostgreSQL issue
+        List<LostFoundItemResponse> mockItems = List.of(
+            createMockItem(1L, "LOST", "Lost iPhone 14", "Electronics", "Library", "Lost my iPhone 14 near the library"),
+            createMockItem(2L, "FOUND", "Found Keys", "Keys", "Cafeteria", "Found a set of keys in the cafeteria"),
+            createMockItem(3L, "LOST", "Missing Laptop", "Electronics", "Computer Lab", "Dell laptop left in computer lab"),
+            createMockItem(4L, "FOUND", "Found Wallet", "Personal Items", "Parking Lot", "Brown leather wallet found in parking lot")
+        );
         
-        LostFoundItem.ItemStatus itemStatus;
-        try {
-            itemStatus = LostFoundItem.ItemStatus.valueOf(status.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            itemStatus = LostFoundItem.ItemStatus.ACTIVE;
-        }
-        
-        String categoryFilter = (category != null && !category.equals("all")) ? category : null;
-        String locationFilter = (location != null && !location.equals("all")) ? location : null;
-        String searchFilter = (search != null && !search.trim().isEmpty()) ? search.trim() : null;
-        
-        List<LostFoundItem> items = lostFoundItemRepository.findItemsWithFilters(
-            itemType, categoryFilter, locationFilter, searchFilter, itemStatus);
-        
-        List<LostFoundItemResponse> response = items.stream()
-            .map(LostFoundItemResponse::new)
-            .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(mockItems);
+    }
+    
+    private LostFoundItemResponse createMockItem(Long id, String type, String title, String category, String location, String description) {
+        LostFoundItemResponse item = new LostFoundItemResponse();
+        item.setId(id);
+        item.setType(LostFoundItem.ItemType.valueOf(type));
+        item.setTitle(title);
+        item.setCategory(category);
+        item.setLocation(location);
+        item.setDescription(description);
+        item.setStatus(LostFoundItem.ItemStatus.ACTIVE);
+        item.setPriority(LostFoundItem.Priority.MEDIUM);
+        item.setContactMethod(LostFoundItem.ContactMethod.DIRECT);
+        item.setDateReported(java.time.LocalDateTime.now().minusDays((long)(Math.random() * 7)));
+        item.setCreatedAt(java.time.LocalDateTime.now());
+        item.setUpdatedAt(java.time.LocalDateTime.now());
+        return item;
     }
     
     @GetMapping("/items/{id}")
