@@ -23,23 +23,28 @@ public class LostFoundItem {
     
     @NotBlank
     @Size(max = 200)
+    @Column(length = 200, columnDefinition = "VARCHAR(200)")
     private String title;
     
     @NotBlank
     @Size(max = 1000)
+    @Column(length = 1000, columnDefinition = "TEXT")
     private String description;
     
     @NotBlank
     @Size(max = 100)
+    @Column(length = 100, columnDefinition = "VARCHAR(100)")
     private String category;
     
     @NotBlank
     @Size(max = 200)
+    @Column(length = 200, columnDefinition = "VARCHAR(200)")
     private String location;
     
     private LocalDateTime dateReported = LocalDateTime.now();
     
     @Size(max = 500)
+    @Column(length = 500, columnDefinition = "VARCHAR(500)")
     private String imageUrl;
     
     private Double reward;
@@ -60,6 +65,8 @@ public class LostFoundItem {
     private Priority priority = Priority.MEDIUM;
     
     @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "lost_found_item_tags", joinColumns = @JoinColumn(name = "item_id"))
+    @Column(name = "tag")
     private Set<String> tags = new HashSet<>();
     
     private LocalDateTime createdAt = LocalDateTime.now();
