@@ -4,13 +4,13 @@ spring.application.name=smart-campus-backend
 # PostgreSQL Database configuration
 spring.datasource.url=jdbc:postgresql://localhost:5433/smart_campus_db
 spring.datasource.driverClassName=org.postgresql.Driver
-spring.datasource.username=postgres
-spring.datasource.password=rothila
+spring.datasource.username=${DB_USERNAME:postgres}
+spring.datasource.password=${DB_PASSWORD:your_password_here}
 
 # JPA configuration
 spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
-spring.jpa.hibernate.ddl-auto=create-drop
-spring.jpa.properties.hibernate.hbm2ddl.auto=create
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation=true
 
 # CORS configuration
@@ -19,5 +19,5 @@ spring.web.cors.allowed-methods=GET,POST,PUT,DELETE,OPTIONS
 spring.web.cors.allowed-headers=*
 
 # JWT Configuration
-jwt.secret=${JWT_SECRET:75bbbf5114ab1e2248b8573d}
+jwt.secret=${JWT_SECRET:change_this_secret_key_in_production}
 jwt.expiration=${JWT_EXPIRATION:86400}
