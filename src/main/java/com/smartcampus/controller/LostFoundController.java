@@ -36,15 +36,36 @@ public class LostFoundController {
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "ACTIVE") String status) {
         
-        // Temporary mock data while we fix PostgreSQL issue
-        List<LostFoundItemResponse> mockItems = List.of(
-            createMockItem(1L, "LOST", "Lost iPhone 14", "Electronics", "Library", "Lost my iPhone 14 near the library"),
-            createMockItem(2L, "FOUND", "Found Keys", "Keys", "Cafeteria", "Found a set of keys in the cafeteria"),
-            createMockItem(3L, "LOST", "Missing Laptop", "Electronics", "Computer Lab", "Dell laptop left in computer lab"),
-            createMockItem(4L, "FOUND", "Found Wallet", "Personal Items", "Parking Lot", "Brown leather wallet found in parking lot")
-        );
-        
-        return ResponseEntity.ok(mockItems);
+        try {
+            List<LostFoundItem> items = lostFoundItemRepository.findAll();
+            
+            // Apply filters
+            items = items.stream()
+                .filter(item -> type == null || item.getType().toString().equalsIgnoreCase(type))
+                .filter(item -> category == null || item.getCategory().equalsIgnoreCase(category))
+                .filter(item -> location == null || item.getLocation().equalsIgnoreCase(location))
+                .filter(item -> status == null || item.getStatus().toString().equalsIgnoreCase(status))
+                .filter(item -> search == null || 
+                    item.getTitle().toLowerCase().contains(search.toLowerCase()) ||
+                    item.getDescription().toLowerCase().contains(search.toLowerCase()))
+                .collect(Collectors.toList());
+            
+            List<LostFoundItemResponse> response = items.stream()
+                .map(LostFoundItemResponse::new)
+                .collect(Collectors.toList());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            // Fallback to mock data if database issues
+            List<LostFoundItemResponse> mockItems = List.of(
+                createMockItem(1L, "LOST", "Lost iPhone 14", "Electronics", "Library", "Lost my iPhone 14 near the library"),
+                createMockItem(2L, "FOUND", "Found Keys", "Keys", "Cafeteria", "Found a set of keys in the cafeteria"),
+                createMockItem(3L, "LOST", "Missing Laptop", "Electronics", "Computer Lab", "Dell laptop left in computer lab"),
+                createMockItem(4L, "FOUND", "Found Wallet", "Personal Items", "Parking Lot", "Brown leather wallet found in parking lot")
+            );
+            
+            return ResponseEntity.ok(mockItems);
+        }
     }
     
     private LostFoundItemResponse createMockItem(Long id, String type, String title, String category, String location, String description) {

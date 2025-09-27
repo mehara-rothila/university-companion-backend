@@ -61,3 +61,4 @@ logs/
 # Application properties with sensitive data
 application-prod.properties
 application-dev.properties
+src/main/resources/application.properties
