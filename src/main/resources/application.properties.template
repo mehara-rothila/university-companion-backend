@@ -21,3 +21,9 @@ spring.web.cors.allowed-headers=*
 # JWT Configuration
 jwt.secret=${JWT_SECRET:change_this_secret_key_in_production}
 jwt.expiration=${JWT_EXPIRATION:86400}
+
+# AWS S3 Configuration
+aws.access-key-id=${AWS_ACCESS_KEY_ID:your_access_key_here}
+aws.secret-access-key=${AWS_SECRET_ACCESS_KEY:your_secret_key_here}
+aws.region=${AWS_REGION:us-east-1}
+aws.s3.bucket-name=${AWS_S3_BUCKET:thirdyearproject}
