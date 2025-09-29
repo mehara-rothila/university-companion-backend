@@ -84,6 +84,12 @@
             <version>2.20.56</version>
         </dependency>
         
+        <!-- WebSocket Support -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+        
     </dependencies>
 
     <build>
