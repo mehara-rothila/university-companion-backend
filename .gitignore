@@ -62,3 +62,9 @@ logs/
 application-prod.properties
 application-dev.properties
 src/main/resources/application.properties
+
+# Deployment guides with sensitive information
+PRODUCTION_DEPLOYMENT_COMPLETE_GUIDE.md
+DEPLOYMENT_FIX.md
+URGENT_CORS_FIX.md
+HEROKU_FIX_COMPLETE.md
