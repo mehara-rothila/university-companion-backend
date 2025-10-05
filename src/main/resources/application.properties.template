@@ -2,7 +2,7 @@ server.port=8080
 spring.application.name=smart-campus-backend
 
 # PostgreSQL Database configuration
-spring.datasource.url=jdbc:postgresql://localhost:5433/smart_campus_db
+spring.datasource.url=${DATABASE_URL:jdbc:postgresql://localhost:5433/smart_campus_db}
 spring.datasource.driverClassName=org.postgresql.Driver
 spring.datasource.username=${DB_USERNAME:postgres}
 spring.datasource.password=${DB_PASSWORD:your_password_here}
