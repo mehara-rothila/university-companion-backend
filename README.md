@@ -612,6 +612,49 @@ spring.jpa.properties.hibernate.order_updates=true
 
 ## 🚀 Deployment
 
+### 🌐 Production Environment
+
+#### Production Stack
+- **Platform**: Heroku (Cloud PaaS)
+- **Database**: PostgreSQL (Heroku Postgres)
+- **Storage**: AWS S3
+- **Java Runtime**: OpenJDK 17
+- **Profile**: `spring.profiles.active=heroku`
+
+#### Heroku Environment Variables
+```bash
+# Required production environment variables
+CORS_ALLOWED_ORIGINS=<your_frontend_url>
+DATABASE_URL=<postgres_connection_string>
+AWS_ACCESS_KEY_ID=<your_aws_access_key>
+AWS_SECRET_ACCESS_KEY=<your_aws_secret_key>
+AWS_REGION=<your_aws_region>
+AWS_S3_BUCKET_NAME=<your_bucket_name>
+JWT_SECRET=<your_production_jwt_secret>
+JWT_EXPIRATION=86400
+```
+
+#### Deployment Process
+```bash
+# 1. Ensure code is committed
+git add .
+git commit -m "Update backend"
+
+# 2. Push to GitHub (triggers Heroku deployment)
+git push origin main
+
+# 3. Heroku automatically:
+#    - Detects Java/Maven project
+#    - Runs Maven build
+#    - Uses Procfile to start app with production profile
+#    - Loads environment variables
+```
+
+#### Heroku Configuration Files
+- **Procfile**: `web: java -Dserver.port=$PORT -Dspring.profiles.active=heroku -jar target/*.jar`
+- **system.properties**: `java.runtime.version=17`
+- **application-heroku.properties**: Production-specific Spring configuration
+
 ### 📦 Building for Production
 
 #### Create Production JAR
@@ -645,14 +688,59 @@ docker run -p 8080:8080 \
 #### Environment Variables for Production
 ```bash
 # Required environment variables
-export SPRING_PROFILES_ACTIVE=prod
-export SPRING_DATASOURCE_URL=jdbc:postgresql://prod-host:5432/smart_campus_db
-export SPRING_DATASOURCE_USERNAME=postgres
-export SPRING_DATASOURCE_PASSWORD=secure_password
-export JWT_SECRET=very_long_and_secure_jwt_secret_key_for_production
-export AWS_ACCESS_KEY_ID=your_aws_access_key
-export AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+export SPRING_PROFILES_ACTIVE=heroku
+export DATABASE_URL=<postgres_connection_string>
+export CORS_ALLOWED_ORIGINS=<your_frontend_url>
+export JWT_SECRET=<very_long_and_secure_jwt_secret_key>
+export JWT_EXPIRATION=86400
+export AWS_ACCESS_KEY_ID=<your_aws_access_key>
+export AWS_SECRET_ACCESS_KEY=<your_aws_secret_key>
+export AWS_REGION=<your_aws_region>
+export AWS_S3_BUCKET_NAME=<your_bucket_name>
 ```
+
+### 🔍 Production Monitoring
+
+#### Health Check
+```bash
+# Check production API status
+curl <your_production_api_url>/api/health
+
+# Expected response
+{"status":"UP","timestamp":"2024-01-15T10:30:00Z"}
+```
+
+#### CORS Verification
+```bash
+# Test CORS headers
+curl -H "Origin: <your_frontend_url>" \
+     -H "Access-Control-Request-Method: POST" \
+     -H "Access-Control-Request-Headers: Content-Type" \
+     -X OPTIONS \
+     <your_production_api_url>/api/auth/signin -v
+
+# Should include:
+# Access-Control-Allow-Origin: <your_frontend_url>
+# Access-Control-Allow-Credentials: true
+```
+
+#### View Heroku Logs
+```bash
+# Real-time logs
+heroku logs --tail --app <your_app_name>
+
+# Last 100 lines
+heroku logs -n 100 --app <your_app_name>
+
+# Filter by source
+heroku logs --source app --app <your_app_name>
+```
+
+### 💰 Production Costs (Estimated)
+- **Heroku Dyno**: Free tier or Eco ($5/month)
+- **PostgreSQL Database**: $0-10/month depending on plan
+- **AWS S3**: Pay-as-you-go (~$0.50-$2/month for typical usage)
+- **Total Estimated**: $5-15/month depending on configuration
 
 ### 🔒 Security Best Practices
 
