@@ -1,6 +1,7 @@
 package com.smartcampus.controller;
 
 import com.smartcampus.dto.AdminReviewRequest;
+import com.smartcampus.dto.AdminFinancialAidRequest;
 import com.smartcampus.dto.FinancialAidResponse;
 import com.smartcampus.model.FinancialAid;
 import com.smartcampus.model.User;
@@ -221,6 +222,61 @@ public class FinancialAidAdminController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(null);
+        }
+    }
+    
+    @PostMapping("/applications/create")
+    public ResponseEntity<?> createApplicationForUser(@Valid @RequestBody AdminFinancialAidRequest request) {
+        try {
+            // Find the applicant user
+            Optional<User> applicantOpt = userRepository.findById(request.getApplicantUserId());
+            if (!applicantOpt.isPresent()) {
+                return ResponseEntity.badRequest().body("Applicant user not found");
+            }
+            
+            // Get admin user (in real implementation, get from authentication)
+            Optional<User> adminOpt = userRepository.findById(1L);
+            if (!adminOpt.isPresent()) {
+                return ResponseEntity.badRequest().body("Admin user not found");
+            }
+            
+            User applicant = applicantOpt.get();
+            User admin = adminOpt.get();
+            
+            // Create the financial aid application
+            FinancialAid application = new FinancialAid(
+                request.getTitle(),
+                request.getDescription(),
+                request.getAidType(),
+                request.getCategory(),
+                request.getRequestedAmount(),
+                applicant
+            );
+            
+            // Set additional properties
+            application.setPriority(request.getPriority());
+            application.setUrgency(request.getUrgency());
+            application.setAnonymous(request.isAnonymous());
+            application.setSupportingDocuments(request.getSupportingDocuments());
+            application.setPersonalStory(request.getPersonalStory());
+            application.setApplicationDeadline(request.getApplicationDeadline());
+            application.setDonationEligible(request.isDonationEligible());
+            
+            // Set admin-specific fields
+            if (request.getAdminNotes() != null && !request.getAdminNotes().trim().isEmpty()) {
+                application.setAdminNotes(request.getAdminNotes());
+            }
+            
+            // Since this is created by admin, we can set it to PENDING status immediately
+            application.setStatus(FinancialAid.ApplicationStatus.PENDING);
+            application.setCreatedAt(LocalDateTime.now());
+            application.setUpdatedAt(LocalDateTime.now());
+            
+            FinancialAid savedApplication = financialAidRepository.save(application);
+            
+            return ResponseEntity.ok(new FinancialAidResponse(savedApplication));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error creating application: " + e.getMessage());
         }
     }
 }
