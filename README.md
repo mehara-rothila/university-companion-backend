@@ -25,11 +25,41 @@ A comprehensive Spring Boot REST API backend for the Smart Campus Companion appl
 - **Image Serving Proxy** - Backend proxy for secure image delivery
 - **Image Deletion** - Complete lifecycle management
 
+### 💰 Financial Aid System (Production Ready)
+- **Application Management** - Complete CRUD operations for financial aid applications
+- **Multiple Aid Types** - Scholarships, grants, loans, emergency aid, work-study
+- **Admin Panel** - Review, approve, reject applications
+- **Status Tracking** - Pending, under review, approved, rejected, disbursed
+- **Document Support** - Attach supporting documents to applications
+- **Donation System** - Community donations for financial aid programs
+- **Statistics & Analytics** - Track application metrics and funding
+
+### 🔔 Notification System (Production Ready)
+- **Real-time Notifications** - WebSocket-based instant notifications
+- **Multiple Types** - System, financial aid, lost & found, academic alerts
+- **Priority Management** - High, medium, low priority notifications
+- **Read/Unread Tracking** - User notification status management
+- **Bulk Operations** - Mark all as read, delete all read notifications
+- **User-specific Notifications** - Targeted notifications per user
+
+### 👥 Admin Management System (Production Ready)
+- **User Management** - Complete CRUD operations for users
+- **Dashboard Statistics** - Real-time metrics and analytics
+- **Bulk Operations** - Enable/disable/delete multiple users
+- **Password Management** - Admin password reset functionality
+- **Role-based Access** - Admin and user role management
+- **User Status Control** - Enable/disable user accounts
+
 ### 🗄️ Database Integration
 - **PostgreSQL Database** - Production-ready relational database
 - **JPA/Hibernate ORM** - Object-relational mapping
 - **Connection Pooling** - Optimized database connections
 - **Data Persistence** - Reliable data storage and retrieval
+
+### 🌐 WebSocket Support
+- **Real-time Communication** - WebSocket integration for live updates
+- **STOMP Protocol** - Message broker for pub/sub messaging
+- **Notification Broadcasting** - Real-time notification delivery
 
 ## 🛠️ Tech Stack
 
@@ -59,6 +89,11 @@ A comprehensive Spring Boot REST API backend for the Smart Campus Companion appl
 - **Spring Boot DevTools**: Development-time features
 - **Validation**: Bean validation with Hibernate Validator
 - **Actuator**: Application monitoring and management
+
+### Real-time & Messaging
+- **Spring WebSocket**: Real-time bidirectional communication
+- **STOMP**: Simple Text Oriented Messaging Protocol
+- **Message Broker**: In-memory broker for pub/sub
 
 ### API Documentation
 - **OpenAPI 3**: Swagger/OpenAPI documentation
@@ -211,6 +246,231 @@ Authorization: Bearer {jwt_token}
 Response: "Image deleted successfully"
 ```
 
+### 👥 Admin Management Endpoints
+
+#### Get Dashboard Statistics
+```http
+GET /api/admin/dashboard/stats
+Authorization: Bearer {jwt_token}
+Response: {
+  "totalUsers": 150,
+  "activeUsers": 120,
+  "inactiveUsers": 30,
+  "adminUsers": 5,
+  "regularUsers": 145
+}
+```
+
+#### Get All Users
+```http
+GET /api/admin/users?page=0&size=10
+Authorization: Bearer {jwt_token}
+```
+
+#### Get User by ID
+```http
+GET /api/admin/users/{id}
+Authorization: Bearer {jwt_token}
+```
+
+#### Update User
+```http
+PUT /api/admin/users/{id}
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john@example.com",
+  "role": "ADMIN"
+}
+```
+
+#### Delete User
+```http
+DELETE /api/admin/users/{id}
+Authorization: Bearer {jwt_token}
+```
+
+#### Toggle User Status
+```http
+PATCH /api/admin/users/{id}/toggle-status
+Authorization: Bearer {jwt_token}
+```
+
+#### Reset User Password
+```http
+PATCH /api/admin/users/{id}/reset-password
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+{
+  "newPassword": "newPassword123"
+}
+```
+
+#### Bulk User Actions
+```http
+POST /api/admin/users/bulk-action
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+{
+  "action": "DELETE",
+  "userIds": [1, 2, 3]
+}
+```
+
+### 💰 Financial Aid Endpoints
+
+#### Get All Applications
+```http
+GET /api/financial-aid/applications?status=PENDING&type=SCHOLARSHIP
+Authorization: Bearer {jwt_token}
+```
+
+#### Get User's Applications
+```http
+GET /api/financial-aid/applications/user/{userId}
+Authorization: Bearer {jwt_token}
+```
+
+#### Get Single Application
+```http
+GET /api/financial-aid/applications/{id}
+Authorization: Bearer {jwt_token}
+```
+
+#### Submit Application
+```http
+POST /api/financial-aid/applications
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+{
+  "aidType": "SCHOLARSHIP",
+  "amount": 5000.00,
+  "reason": "Need financial assistance for tuition",
+  "academicYear": "2024/2025",
+  "cgpa": 3.75,
+  "familyIncome": 50000.00,
+  "documents": ["document1.pdf", "document2.pdf"]
+}
+```
+
+#### Update Application
+```http
+PUT /api/financial-aid/applications/{id}
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+```
+
+#### Cancel Application
+```http
+DELETE /api/financial-aid/applications/{id}
+Authorization: Bearer {jwt_token}
+```
+
+#### Get Statistics
+```http
+GET /api/financial-aid/stats
+Response: {
+  "totalApplications": 200,
+  "pendingApplications": 50,
+  "approvedApplications": 100,
+  "rejectedApplications": 30,
+  "totalAmountRequested": 500000.00,
+  "totalAmountApproved": 300000.00
+}
+```
+
+#### Admin: Review Application
+```http
+POST /api/financial-aid/admin/applications/{id}/review
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+{
+  "status": "APPROVED",
+  "reviewNotes": "Application meets all criteria",
+  "approvedAmount": 5000.00
+}
+```
+
+#### Admin: Get All Applications
+```http
+GET /api/financial-aid/admin/applications?page=0&size=20
+Authorization: Bearer {jwt_token}
+```
+
+### 🔔 Notification Endpoints
+
+#### Get User Notifications
+```http
+GET /api/notifications/user/{userId}?page=0&size=20
+Authorization: Bearer {jwt_token}
+Response: [
+  {
+    "id": 1,
+    "userId": 1,
+    "type": "FINANCIAL_AID",
+    "title": "Application Approved",
+    "message": "Your scholarship application has been approved",
+    "priority": "HIGH",
+    "read": false,
+    "createdAt": "2024-01-15T10:30:00"
+  }
+]
+```
+
+#### Get Unread Count
+```http
+GET /api/notifications/user/{userId}/unread/count
+Authorization: Bearer {jwt_token}
+Response: 5
+```
+
+#### Mark Notification as Read
+```http
+PUT /api/notifications/{id}/read
+Authorization: Bearer {jwt_token}
+```
+
+#### Mark All as Read
+```http
+PUT /api/notifications/user/{userId}/read-all
+Authorization: Bearer {jwt_token}
+```
+
+#### Delete Notification
+```http
+DELETE /api/notifications/{id}
+Authorization: Bearer {jwt_token}
+```
+
+#### Delete All Read Notifications
+```http
+DELETE /api/notifications/user/{userId}/read
+Authorization: Bearer {jwt_token}
+```
+
+#### Create Notification (Admin)
+```http
+POST /api/notifications
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+{
+  "userId": 1,
+  "type": "SYSTEM",
+  "title": "System Maintenance",
+  "message": "Scheduled maintenance on Sunday",
+  "priority": "HIGH"
+}
+```
+
+### 🌐 WebSocket Endpoints
+```
+CONNECT /ws
+SUBSCRIBE /topic/notifications/{userId}
+SEND /app/notifications
+```
+
 ### 👤 User Management Endpoints
 ```http
 GET /api/users/profile
@@ -224,6 +484,17 @@ Authorization: Bearer {jwt_token}
 
 DELETE /api/users/{id}
 Authorization: Bearer {jwt_token}
+```
+
+### 🔧 Setup Endpoints
+```http
+POST /api/setup/init
+Content-Type: application/json
+{
+  "adminEmail": "admin@example.com",
+  "adminPassword": "securePassword123"
+}
+Response: "Admin user created successfully"
 ```
 
 ### 🔍 Health Check
@@ -391,10 +662,15 @@ src/
 │   │   ├── config/
 │   │   │   └── SecurityConfig.java        # Security & CORS configuration
 │   │   ├── controller/                    # REST API Controllers
+│   │   │   ├── AdminController.java       # Admin user management
 │   │   │   ├── AuthController.java        # Authentication endpoints
+│   │   │   ├── FinancialAidController.java          # Financial aid applications
+│   │   │   ├── FinancialAidAdminController.java     # Financial aid admin panel
 │   │   │   ├── HealthController.java      # Health check endpoint
 │   │   │   ├── ImageUploadController.java # S3 image upload/serve
 │   │   │   ├── LostFoundController.java   # Lost & Found CRUD operations
+│   │   │   ├── NotificationController.java # Notification management
+│   │   │   ├── SetupController.java       # Initial setup endpoint
 │   │   │   └── UserController.java        # User management
 │   │   ├── dto/                          # Data Transfer Objects
 │   │   │   ├── JwtResponse.java          # JWT login response
@@ -403,10 +679,16 @@ src/
 │   │   │   ├── LostFoundItemResponse.java # Item response format
 │   │   │   └── SignupRequest.java        # Registration request
 │   │   ├── model/                        # JPA Entity Models
+│   │   │   ├── FinancialAid.java         # Financial aid application entity
+│   │   │   ├── FinancialAidDonation.java # Donation entity
 │   │   │   ├── LostFoundItem.java        # Lost & Found item entity
+│   │   │   ├── Notification.java         # Notification entity
 │   │   │   └── User.java                 # User entity
 │   │   ├── repository/                   # Data Access Layer
+│   │   │   ├── FinancialAidRepository.java      # Financial aid data access
+│   │   │   ├── FinancialAidDonationRepository.java # Donation data access
 │   │   │   ├── LostFoundItemRepository.java # Lost & Found data access
+│   │   │   ├── NotificationRepository.java  # Notification data access
 │   │   │   └── UserRepository.java          # User data access
 │   │   ├── security/                     # Security Components
 │   │   │   └── JwtUtils.java            # JWT token utilities
@@ -424,15 +706,23 @@ src/
 ### 📋 Key Components Explanation
 
 #### Controllers (REST API Layer)
+- **AdminController**: Admin user management, dashboard statistics
 - **AuthController**: JWT authentication, login/register endpoints
+- **FinancialAidController**: User financial aid applications
+- **FinancialAidAdminController**: Admin review and approval of applications
 - **LostFoundController**: Complete CRUD operations for lost & found items
 - **ImageUploadController**: S3 image upload, serving, and deletion
+- **NotificationController**: Real-time notification management
+- **SetupController**: Initial system setup and admin creation
 - **UserController**: User profile management
 - **HealthController**: Application health monitoring
 
 #### Models (Data Layer)
-- **User**: User entity with authentication fields
+- **User**: User entity with authentication fields and roles
 - **LostFoundItem**: Complete lost & found item with relationships
+- **FinancialAid**: Financial aid application with status tracking
+- **FinancialAidDonation**: Community donation records
+- **Notification**: User notifications with priority and type
 
 #### Services (Business Logic)
 - **S3Service**: AWS S3 integration for image management
