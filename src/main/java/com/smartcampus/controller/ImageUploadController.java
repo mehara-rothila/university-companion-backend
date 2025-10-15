@@ -89,6 +89,69 @@ public class ImageUploadController {
         }
     }
 
+    @PostMapping("/pdf")
+    public ResponseEntity<?> uploadPdf(@RequestParam("file") MultipartFile file) {
+        try {
+            // Validate file type
+            if (!isValidPdfFile(file)) {
+                return ResponseEntity.badRequest().body("Only PDF files are allowed");
+            }
+
+            // Validate file size (max 50MB)
+            if (file.getSize() > 50 * 1024 * 1024) {
+                return ResponseEntity.badRequest().body("File size cannot exceed 50MB");
+            }
+
+            String pdfUrl = s3Service.uploadFile(file, "library-pdfs");
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("pdfUrl", pdfUrl);
+            response.put("fileSize", file.getSize());
+            response.put("message", "PDF uploaded successfully");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to upload PDF: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/pdf")
+    public ResponseEntity<?> deletePdf(@RequestParam("pdfUrl") String pdfUrl) {
+        try {
+            String fileName = s3Service.extractFileNameFromUrl(pdfUrl);
+            if (fileName != null) {
+                s3Service.deleteFile(fileName);
+                return ResponseEntity.ok("PDF deleted successfully");
+            } else {
+                return ResponseEntity.badRequest().body("Invalid PDF URL");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to delete PDF: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/pdf/serve")
+    public ResponseEntity<?> servePdf(@RequestParam("url") String s3Url) {
+        try {
+            // Extract filename from S3 URL
+            String fileName = s3Service.extractFileNameFromUrl(s3Url);
+            if (fileName == null) {
+                return ResponseEntity.badRequest().body("Invalid S3 URL");
+            }
+
+            // Get the PDF bytes from S3
+            byte[] pdfBytes = s3Service.getFileBytes(fileName);
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .header("Content-Disposition", "inline; filename=\"" + fileName + "\"")
+                    .body(pdfBytes);
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to serve PDF: " + e.getMessage());
+        }
+    }
+
     private boolean isValidImageFile(MultipartFile file) {
         String contentType = file.getContentType();
         return contentType != null && (
@@ -98,5 +161,12 @@ public class ImageUploadController {
                 contentType.equals("image/gif") ||
                 contentType.equals("image/webp")
         );
+    }
+
+    private boolean isValidPdfFile(MultipartFile file) {
+        String contentType = file.getContentType();
+        String fileName = file.getOriginalFilename();
+        return contentType != null && contentType.equals("application/pdf")
+                && fileName != null && fileName.toLowerCase().endsWith(".pdf");
     }
 }
