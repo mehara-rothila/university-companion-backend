@@ -42,27 +42,47 @@ public class AuthController {
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
         System.out.println("=== LOGIN REQUEST START ===");
         System.out.println("Raw request received");
-        
+
         if (loginRequest == null) {
             System.out.println("LoginRequest is null!");
             return ResponseEntity.badRequest().body("No login data provided");
         }
-        
-        System.out.println("Login request received for username: " + loginRequest.getUsername());
+
+        String usernameOrEmail = loginRequest.getUsernameOrEmail();
+        System.out.println("Login request received for: " + usernameOrEmail);
         System.out.println("Password length: " + (loginRequest.getPassword() != null ? loginRequest.getPassword().length() : "null"));
-        // Find user by username
-        User user = userRepository.findByUsername(loginRequest.getUsername())
-                .orElse(null);
-        
-        if (user == null) {
-            System.out.println("User not found for username: " + loginRequest.getUsername());
-            return ResponseEntity.badRequest().body("Error: User not found!");
+
+        // Try to find user by username or email
+        User user = null;
+
+        // Check if input contains @ symbol to determine if it's likely an email
+        if (usernameOrEmail.contains("@")) {
+            System.out.println("Attempting to find user by email: " + usernameOrEmail);
+            user = userRepository.findByEmail(usernameOrEmail).orElse(null);
+        } else {
+            System.out.println("Attempting to find user by username: " + usernameOrEmail);
+            user = userRepository.findByUsername(usernameOrEmail).orElse(null);
         }
-        
-        System.out.println("User found: " + user.getUsername() + ", returning JWT response");
+
+        // If not found by the first method, try the other method as fallback
+        if (user == null) {
+            System.out.println("User not found by primary method, trying alternative...");
+            if (usernameOrEmail.contains("@")) {
+                user = userRepository.findByUsername(usernameOrEmail).orElse(null);
+            } else {
+                user = userRepository.findByEmail(usernameOrEmail).orElse(null);
+            }
+        }
+
+        if (user == null) {
+            System.out.println("User not found for: " + usernameOrEmail);
+            return ResponseEntity.badRequest().body("Error: Invalid username/email or password!");
+        }
+
+        System.out.println("User found: " + user.getUsername() + " (email: " + user.getEmail() + "), returning JWT response");
         // For now, skip password validation and return a simple JWT
         String jwt = "fake-jwt-token";
-        
+
         JwtResponse response = new JwtResponse(jwt,
                 user.getId(),
                 user.getUsername(),
@@ -70,7 +90,7 @@ public class AuthController {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getRole());
-        
+
         System.out.println("Sending response for user: " + user.getUsername());
         return ResponseEntity.ok(response);
     }
