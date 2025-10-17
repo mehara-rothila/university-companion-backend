@@ -1,6 +1,6 @@
-# Smart Campus Companion - Backend
+# Smart University Companion - Backend
 
-A comprehensive Spring Boot REST API backend for the Smart Campus Companion application - L3 Individual Project at University of Moratuwa.
+A comprehensive Spring Boot REST API backend for the Smart University Companion application - L3 Individual Project at University of Moratuwa.
 
 ## 🚀 Features
 
@@ -527,15 +527,15 @@ cd university-companion-backend
 **Option A: PostgreSQL (Recommended)**
 ```sql
 -- Create database
-CREATE DATABASE smart_campus_db;
+CREATE DATABASE smart_university_db;
 CREATE USER postgres WITH ENCRYPTED PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE smart_campus_db TO postgres;
+GRANT ALL PRIVILEGES ON DATABASE smart_university_db TO postgres;
 ```
 
 **Option B: Docker PostgreSQL**
 ```bash
-docker run --name postgres-campus \
-  -e POSTGRES_DB=smart_campus_db \
+docker run --name postgres-university \
+  -e POSTGRES_DB=smart_university_db \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=rothila \
   -p 5433:5432 \
@@ -547,10 +547,10 @@ Create `src/main/resources/application.properties` from template:
 ```properties
 # Server Configuration
 server.port=8080
-spring.application.name=smart-campus-backend
+spring.application.name=smart-university-backend
 
 # Database Configuration
-spring.datasource.url=jdbc:postgresql://localhost:5433/smart_campus_db
+spring.datasource.url=jdbc:postgresql://localhost:5433/smart_university_db
 spring.datasource.driverClassName=org.postgresql.Driver
 spring.datasource.username=postgres
 spring.datasource.password=rothila
@@ -596,7 +596,7 @@ mvnw.cmd spring-boot:run
 
 # Production build
 ./mvnw clean package
-java -jar target/smart-campus-backend-1.0.0.jar
+java -jar target/smart-university-backend-1.0.0.jar
 ```
 
 #### 6. Verify Installation
@@ -634,7 +634,7 @@ curl http://localhost:8080/api/health
 spring.profiles.active=dev
 spring.jpa.hibernate.ddl-auto=create-drop  # Reset DB on restart
 spring.jpa.show-sql=true
-logging.level.com.smartcampus=DEBUG
+logging.level.com.smartuniversity=DEBUG
 ```
 
 #### Production Environment
@@ -643,7 +643,7 @@ spring.profiles.active=prod
 spring.jpa.hibernate.ddl-auto=validate     # Don't auto-modify schema
 spring.jpa.show-sql=false
 logging.level.root=WARN
-logging.level.com.smartcampus=INFO
+logging.level.com.smartuniversity=INFO
 ```
 
 ### 📊 Application Monitoring
@@ -657,8 +657,8 @@ Access these endpoints for monitoring:
 ```
 src/
 ├── main/
-│   ├── java/com/smartcampus/
-│   │   ├── SmartCampusApplication.java    # Main Spring Boot application
+│   ├── java/com/smartuniversity/
+│   │   ├── SmartUniversityApplication.java    # Main Spring Boot application
 │   │   ├── config/
 │   │   │   └── SecurityConfig.java        # Security & CORS configuration
 │   │   ├── controller/                    # REST API Controllers
@@ -700,7 +700,7 @@ src/
 │       ├── application.properties        # Main configuration
 │       └── application.properties.template # Configuration template
 └── target/                              # Compiled artifacts
-    └── smart-campus-backend-1.0.0.jar  # Executable JAR
+    └── smart-university-backend-1.0.0.jar  # Executable JAR
 ```
 
 ### 📋 Key Components Explanation
@@ -742,7 +742,7 @@ src/
 ```properties
 # Server & Application
 server.port=8080
-spring.application.name=smart-campus-backend
+spring.application.name=smart-university-backend
 
 # Database (PostgreSQL)
 spring.datasource.*
@@ -832,7 +832,7 @@ taskkill /PID <PID> /F
 #### 2. Database Connection Issues
 ```bash
 # Test PostgreSQL connection
-psql -h localhost -p 5433 -U postgres -d smart_campus_db
+psql -h localhost -p 5433 -U postgres -d smart_university_db
 
 # Check database is running
 docker ps  # if using Docker
@@ -867,7 +867,7 @@ aws s3 ls s3://your-bucket-name
 #### 6. Memory Issues
 ```bash
 # Increase JVM memory
-java -Xms512m -Xmx2g -jar target/smart-campus-backend-1.0.0.jar
+java -Xms512m -Xmx2g -jar target/smart-university-backend-1.0.0.jar
 
 # Or set JAVA_OPTS
 export JAVA_OPTS="-Xms512m -Xmx2g"
@@ -950,14 +950,14 @@ git push origin main
 #### Create Production JAR
 ```bash
 ./mvnw clean package -Dmaven.test.skip=true
-# Creates: target/smart-campus-backend-1.0.0.jar
+# Creates: target/smart-university-backend-1.0.0.jar
 ```
 
 #### Docker Deployment
 ```dockerfile
 FROM openjdk:17-jre-slim
 
-COPY target/smart-campus-backend-1.0.0.jar app.jar
+COPY target/smart-university-backend-1.0.0.jar app.jar
 
 EXPOSE 8080
 
@@ -966,13 +966,13 @@ ENTRYPOINT ["java", "-jar", "/app.jar"]
 
 ```bash
 # Build Docker image
-docker build -t smart-campus-backend .
+docker build -t smart-university-backend .
 
 # Run container
 docker run -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e SPRING_DATASOURCE_URL=jdbc:postgresql://host:5432/db \
-  smart-campus-backend
+  smart-university-backend
 ```
 
 #### Environment Variables for Production
@@ -1069,11 +1069,11 @@ curl http://localhost:8080/actuator/health/details
 ```properties
 # Logging levels
 logging.level.root=INFO
-logging.level.com.smartcampus=DEBUG
+logging.level.com.smartuniversity=DEBUG
 logging.level.org.springframework.security=DEBUG
 
 # Log file
-logging.file.name=logs/smart-campus.log
+logging.file.name=logs/smart-university.log
 logging.pattern.file=%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n
 ```
 
@@ -1122,4 +1122,4 @@ For issues and questions related to this academic project:
 
 ---
 
-**Smart Campus Companion Backend** - Enhancing university life through technology 🎓
+**Smart University Companion Backend** - Enhancing university life through technology 🎓
