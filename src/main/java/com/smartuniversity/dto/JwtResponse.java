@@ -11,8 +11,10 @@ public class JwtResponse {
     private String firstName;
     private String lastName;
     private User.UserRole role;
-    
-    public JwtResponse(String accessToken, Long id, String username, String email, 
+    private String imageUrl;
+    private String provider;
+
+    public JwtResponse(String accessToken, Long id, String username, String email,
                       String firstName, String lastName, User.UserRole role) {
         this.token = accessToken;
         this.id = id;
@@ -21,6 +23,20 @@ public class JwtResponse {
         this.firstName = firstName;
         this.lastName = lastName;
         this.role = role;
+    }
+
+    public JwtResponse(String accessToken, Long id, String username, String email,
+                      String firstName, String lastName, User.UserRole role,
+                      String imageUrl, String provider) {
+        this.token = accessToken;
+        this.id = id;
+        this.username = username;
+        this.email = email;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.role = role;
+        this.imageUrl = imageUrl;
+        this.provider = provider;
     }
     
     public String getAccessToken() { return token; }
@@ -46,4 +62,10 @@ public class JwtResponse {
     
     public User.UserRole getRole() { return role; }
     public void setRole(User.UserRole role) { this.role = role; }
+
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
+    public String getProvider() { return provider; }
+    public void setProvider(String provider) { this.provider = provider; }
 }

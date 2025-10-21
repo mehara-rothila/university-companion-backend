@@ -39,30 +39,39 @@ public class User implements UserDetails {
     @Column(unique = true)
     private String username;
     
-    @NotBlank
     @Size(max = 120)
     private String password;
-    
+
     @Size(max = 20)
     private String studentId;
-    
+
     @Size(max = 100)
     private String major;
-    
+
     private Integer year;
-    
+
     @Enumerated(EnumType.STRING)
     private UserRole role = UserRole.STUDENT;
-    
+
     private boolean enabled = true;
-    
+
     private LocalDateTime createdAt = LocalDateTime.now();
-    
+
     private LocalDateTime updatedAt = LocalDateTime.now();
-    
+
     @ElementCollection(fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
     private Set<String> preferences = new HashSet<>();
+
+    // OAuth fields
+    @Size(max = 50)
+    private String provider = "local"; // "local", "google", "github", etc.
+
+    @Size(max = 100)
+    private String providerId; // OAuth provider's unique user ID
+
+    @Size(max = 500)
+    private String imageUrl; // Profile picture URL
     
     public enum UserRole {
         STUDENT, FACULTY, ADMIN
@@ -149,4 +158,13 @@ public class User implements UserDetails {
     
     public Set<String> getPreferences() { return preferences; }
     public void setPreferences(Set<String> preferences) { this.preferences = preferences; }
+
+    public String getProvider() { return provider; }
+    public void setProvider(String provider) { this.provider = provider; }
+
+    public String getProviderId() { return providerId; }
+    public void setProviderId(String providerId) { this.providerId = providerId; }
+
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 }
