@@ -18,4 +18,13 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     List<Book> findByBookTypeAndAvailableForLending(Book.BookType bookType, Boolean availableForLending);
 
     List<Book> findByTitleContainingIgnoreCaseOrAuthorContainingIgnoreCase(String title, String author);
+
+    // File management queries
+    List<Book> findByOwnerIdAndPhotoUrlIsNotNull(Long ownerId);
+
+    List<Book> findByOwnerIdAndPdfUrlIsNotNull(Long ownerId);
+
+    Long countByOwnerIdAndPhotoUrlIsNotNull(Long ownerId);
+
+    Long countByOwnerIdAndPdfUrlIsNotNull(Long ownerId);
 }
