@@ -62,4 +62,9 @@ public interface LostFoundItemRepository extends JpaRepository<LostFoundItem, Lo
     
     @Query("SELECT DISTINCT i.location FROM LostFoundItem i WHERE i.status = :status")
     List<String> findDistinctLocations(@Param("status") LostFoundItem.ItemStatus status);
+
+    // File management queries
+    List<LostFoundItem> findByPostedBy_Id(Long userId);
+
+    Long countByPostedBy_IdAndImageUrlIsNotNull(Long userId);
 }
