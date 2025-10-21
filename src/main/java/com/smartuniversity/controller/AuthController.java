@@ -3,6 +3,7 @@ package com.smartuniversity.controller;
 import com.smartuniversity.dto.JwtResponse;
 import com.smartuniversity.dto.LoginRequest;
 import com.smartuniversity.dto.SignupRequest;
+import com.smartuniversity.dto.OAuthUserRequest;
 import com.smartuniversity.model.User;
 import com.smartuniversity.repository.UserRepository;
 import com.smartuniversity.security.JwtUtils;
@@ -126,6 +127,77 @@ public class AuthController {
         return ResponseEntity.ok("User registered successfully!");
     }
     
+    @PostMapping("/oauth/register")
+    public ResponseEntity<?> registerOrLoginOAuthUser(@Valid @RequestBody OAuthUserRequest oauthRequest) {
+        System.out.println("=== OAUTH LOGIN/REGISTRATION REQUEST ===");
+        System.out.println("Provider: " + oauthRequest.getProvider());
+        System.out.println("Email: " + oauthRequest.getEmail());
+
+        // Check if user already exists by email
+        User user = userRepository.findByEmail(oauthRequest.getEmail()).orElse(null);
+
+        if (user != null) {
+            // User exists - update OAuth info if needed
+            System.out.println("Existing user found: " + user.getUsername());
+
+            // Update provider info if it was previously a local account
+            if ("local".equals(user.getProvider()) && !oauthRequest.getProvider().equals("local")) {
+                user.setProvider(oauthRequest.getProvider());
+                user.setProviderId(oauthRequest.getProviderId());
+                user.setImageUrl(oauthRequest.getImageUrl());
+                userRepository.save(user);
+                System.out.println("Updated existing local account to OAuth account");
+            }
+        } else {
+            // Create new OAuth user
+            System.out.println("Creating new OAuth user");
+
+            // Generate username from email if not provided
+            String username = oauthRequest.getEmail().split("@")[0];
+
+            // Ensure username is unique
+            int counter = 1;
+            String originalUsername = username;
+            while (userRepository.existsByUsername(username)) {
+                username = originalUsername + counter;
+                counter++;
+            }
+
+            user = new User();
+            user.setFirstName(oauthRequest.getFirstName());
+            user.setLastName(oauthRequest.getLastName());
+            user.setEmail(oauthRequest.getEmail());
+            user.setUsername(username);
+            user.setPassword(encoder.encode("OAUTH_USER_" + System.currentTimeMillis())); // Random password for OAuth users
+            user.setProvider(oauthRequest.getProvider());
+            user.setProviderId(oauthRequest.getProviderId());
+            user.setImageUrl(oauthRequest.getImageUrl());
+            user.setRole(oauthRequest.getRole());
+            user.setEnabled(true);
+
+            userRepository.save(user);
+            System.out.println("New OAuth user created with username: " + username);
+        }
+
+        // Generate JWT token
+        String jwt = jwtUtils.generateJwtToken(user.getUsername());
+
+        JwtResponse response = new JwtResponse(
+            jwt,
+            user.getId(),
+            user.getUsername(),
+            user.getEmail(),
+            user.getFirstName(),
+            user.getLastName(),
+            user.getRole(),
+            user.getImageUrl(),
+            user.getProvider()
+        );
+
+        System.out.println("Sending OAuth response for user: " + user.getUsername());
+        return ResponseEntity.ok(response);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<?> handleValidationExceptions(MethodArgumentNotValidException ex) {
         System.out.println("Validation error: " + ex.getMessage());
