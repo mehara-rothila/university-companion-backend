@@ -2,8 +2,10 @@ package com.smartuniversity.controller;
 
 import com.smartuniversity.dto.UserFileResponse;
 import com.smartuniversity.model.Book;
+import com.smartuniversity.model.ChatbotUpload;
 import com.smartuniversity.model.LostFoundItem;
 import com.smartuniversity.repository.BookRepository;
+import com.smartuniversity.repository.ChatbotUploadRepository;
 import com.smartuniversity.repository.LostFoundItemRepository;
 import com.smartuniversity.service.S3Service;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +27,9 @@ public class FileManagementController {
 
     @Autowired
     private BookRepository bookRepository;
+
+    @Autowired
+    private ChatbotUploadRepository chatbotUploadRepository;
 
     @Autowired
     private S3Service s3Service;
@@ -86,6 +91,24 @@ public class FileManagementController {
             ));
         }
 
+        // Get Chatbot uploads (images, PDFs, videos uploaded via chatbot)
+        List<ChatbotUpload> chatbotUploads = chatbotUploadRepository.findByUserIdAndDeletedAtIsNullOrderByUploadedAtDesc(userId);
+        for (ChatbotUpload upload : chatbotUploads) {
+            String fileName = upload.getFileName();
+            String fileType = upload.getFileType().toString().toLowerCase();
+            userFiles.add(new UserFileResponse(
+                upload.getId(),
+                upload.getFileUrl(),
+                fileName,
+                fileType,
+                "chatbot_upload",
+                "Chatbot Upload: " + fileName,
+                upload.getFileSize(),
+                upload.getUploadedAt(),
+                fileType
+            ));
+        }
+
         // Sort by upload date (most recent first)
         userFiles.sort((a, b) -> b.getUploadedAt().compareTo(a.getUploadedAt()));
 
@@ -100,17 +123,31 @@ public class FileManagementController {
         long lostFoundCount = lostFoundItemRepository.countByPostedBy_IdAndImageUrlIsNotNull(userId);
         long bookPhotoCount = bookRepository.countByOwnerIdAndPhotoUrlIsNotNull(userId);
         long bookPdfCount = bookRepository.countByOwnerIdAndPdfUrlIsNotNull(userId);
+        long chatbotUploadCount = chatbotUploadRepository.countByUserIdAndDeletedAtIsNull(userId);
+        long chatbotImageCount = chatbotUploadRepository.countByUserIdAndFileTypeAndDeletedAtIsNull(userId, ChatbotUpload.FileType.IMAGE);
+        long chatbotPdfCount = chatbotUploadRepository.countByUserIdAndFileTypeAndDeletedAtIsNull(userId, ChatbotUpload.FileType.PDF);
+        long chatbotVideoCount = chatbotUploadRepository.countByUserIdAndFileTypeAndDeletedAtIsNull(userId, ChatbotUpload.FileType.VIDEO);
 
-        stats.put("totalFiles", lostFoundCount + bookPhotoCount + bookPdfCount);
-        stats.put("imageCount", lostFoundCount + bookPhotoCount);
-        stats.put("pdfCount", bookPdfCount);
+        stats.put("totalFiles", lostFoundCount + bookPhotoCount + bookPdfCount + chatbotUploadCount);
+        stats.put("imageCount", lostFoundCount + bookPhotoCount + chatbotImageCount);
+        stats.put("pdfCount", bookPdfCount + chatbotPdfCount);
+        stats.put("videoCount", chatbotVideoCount);
 
-        // Calculate total storage used (only for PDFs as images don't have size tracked)
+        // Calculate total storage used (PDFs and chatbot uploads have size tracked)
         List<Book> booksWithPdfs = bookRepository.findByOwnerIdAndPdfUrlIsNotNull(userId);
         long totalBytes = booksWithPdfs.stream()
             .filter(book -> book.getFileSize() != null)
             .mapToLong(Book::getFileSize)
             .sum();
+
+        // Add chatbot upload sizes
+        List<ChatbotUpload> chatbotUploads = chatbotUploadRepository.findByUserIdAndDeletedAtIsNullOrderByUploadedAtDesc(userId);
+        long chatbotBytes = chatbotUploads.stream()
+            .filter(upload -> upload.getFileSize() != null)
+            .mapToLong(ChatbotUpload::getFileSize)
+            .sum();
+
+        totalBytes += chatbotBytes;
 
         stats.put("totalStorageBytes", totalBytes);
         stats.put("totalStorageMB", totalBytes / (1024.0 * 1024.0));
@@ -120,6 +157,10 @@ public class FileManagementController {
         breakdown.put("lostFoundImages", lostFoundCount);
         breakdown.put("bookPhotos", bookPhotoCount);
         breakdown.put("bookPdfs", bookPdfCount);
+        breakdown.put("chatbotUploads", chatbotUploadCount);
+        breakdown.put("chatbotImages", chatbotImageCount);
+        breakdown.put("chatbotPdfs", chatbotPdfCount);
+        breakdown.put("chatbotVideos", chatbotVideoCount);
         stats.put("breakdown", breakdown);
 
         return ResponseEntity.ok(stats);
@@ -210,6 +251,35 @@ public class FileManagementController {
             return ResponseEntity.badRequest().body("No PDF to delete");
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Error deleting PDF: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/chatbot-upload/{uploadId}")
+    public ResponseEntity<?> deleteChatbotUpload(@PathVariable Long uploadId, @RequestParam Long userId) {
+        try {
+            ChatbotUpload upload = chatbotUploadRepository.findById(uploadId)
+                .orElseThrow(() -> new RuntimeException("Upload not found"));
+
+            // Verify ownership
+            if (!upload.getUserId().equals(userId)) {
+                return ResponseEntity.status(403).body("You don't have permission to delete this file");
+            }
+
+            if (upload.getFileUrl() != null && !upload.getFileUrl().isEmpty()) {
+                // Delete from S3
+                String fileName = s3Service.extractFileNameFromUrl(upload.getFileUrl());
+                s3Service.deleteFile(fileName);
+
+                // Soft delete: set deletedAt timestamp instead of hard delete
+                upload.setDeletedAt(java.time.LocalDateTime.now());
+                chatbotUploadRepository.save(upload);
+
+                return ResponseEntity.ok("File deleted successfully");
+            }
+
+            return ResponseEntity.badRequest().body("No file to delete");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error deleting file: " + e.getMessage());
         }
     }
 }
