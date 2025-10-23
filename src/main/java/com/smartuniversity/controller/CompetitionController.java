@@ -55,11 +55,18 @@ public class CompetitionController {
             competition.setPrizes((String) competitionData.get("prizes"));
             competition.setOrganizerId(Long.valueOf(competitionData.get("organizerId").toString()));
 
-            competition.setStartDate(LocalDateTime.parse((String) competitionData.get("startDate")));
-            competition.setEndDate(LocalDateTime.parse((String) competitionData.get("endDate")));
+            // Parse ISO 8601 date strings with timezone (e.g., "2025-10-16T10:57:00.000Z")
+            competition.setStartDate(LocalDateTime.parse(
+                ((String) competitionData.get("startDate")).replace("Z", "")
+            ));
+            competition.setEndDate(LocalDateTime.parse(
+                ((String) competitionData.get("endDate")).replace("Z", "")
+            ));
 
             if (competitionData.containsKey("registrationDeadline") && competitionData.get("registrationDeadline") != null) {
-                competition.setRegistrationDeadline(LocalDateTime.parse((String) competitionData.get("registrationDeadline")));
+                competition.setRegistrationDeadline(LocalDateTime.parse(
+                    ((String) competitionData.get("registrationDeadline")).replace("Z", "")
+                ));
             }
 
             if (competitionData.containsKey("maxParticipants") && competitionData.get("maxParticipants") != null) {
@@ -93,14 +100,12 @@ public class CompetitionController {
         }
     }
 
-    // Get all approved upcoming competitions
+    // Get all approved competitions
     @GetMapping("/approved")
     public ResponseEntity<?> getApprovedCompetitions() {
         try {
-            List<Competition> competitions = competitionRepository.findByStatusAndEndDateAfterOrderByStartDateAsc(
-                ApprovalStatus.APPROVED,
-                LocalDateTime.now()
-            );
+            // Get all approved competitions ordered by start date (descending to show latest first)
+            List<Competition> competitions = competitionRepository.findByStatusOrderByStartDateDesc(ApprovalStatus.APPROVED);
 
             List<Map<String, Object>> response = new ArrayList<>();
             for (Competition comp : competitions) {
