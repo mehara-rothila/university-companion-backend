@@ -19,7 +19,8 @@ public class ImageUploadController {
     private S3Service s3Service;
 
     @PostMapping("/image")
-    public ResponseEntity<?> uploadImage(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> uploadImage(@RequestParam("file") MultipartFile file,
+                                         @RequestParam(value = "folder", required = false, defaultValue = "lost-found-images") String folder) {
         try {
             // Validate file type
             if (!isValidImageFile(file)) {
@@ -31,12 +32,18 @@ public class ImageUploadController {
                 return ResponseEntity.badRequest().body("File size cannot exceed 10MB");
             }
 
-            String imageUrl = s3Service.uploadFile(file, "lost-found-images");
-            
+            // Validate folder name (security measure)
+            String[] allowedFolders = {"lost-found-images", "competition-images", "profile-images"};
+            if (!java.util.Arrays.asList(allowedFolders).contains(folder)) {
+                folder = "lost-found-images"; // Default to lost-found if invalid folder
+            }
+
+            String imageUrl = s3Service.uploadFile(file, folder);
+
             Map<String, String> response = new HashMap<>();
             response.put("imageUrl", imageUrl);
             response.put("message", "Image uploaded successfully");
-            
+
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to upload image: " + e.getMessage());
