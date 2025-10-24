@@ -61,8 +61,14 @@ public class Competition {
 
     private Long approvedBy; // Admin user ID who approved
 
+    private LocalDateTime rejectedAt;
+
+    private Long rejectedBy; // Admin user ID who rejected
+
     @Column(length = 500)
     private String rejectionReason;
+
+    private boolean hidden = false; // For soft delete by admin
 
     public enum ApprovalStatus {
         PENDING, APPROVED, REJECTED
@@ -241,5 +247,29 @@ public class Competition {
 
     public void setRejectionReason(String rejectionReason) {
         this.rejectionReason = rejectionReason;
+    }
+
+    public LocalDateTime getRejectedAt() {
+        return rejectedAt;
+    }
+
+    public void setRejectedAt(LocalDateTime rejectedAt) {
+        this.rejectedAt = rejectedAt;
+    }
+
+    public Long getRejectedBy() {
+        return rejectedBy;
+    }
+
+    public void setRejectedBy(Long rejectedBy) {
+        this.rejectedBy = rejectedBy;
+    }
+
+    public boolean isHidden() {
+        return hidden;
+    }
+
+    public void setHidden(boolean hidden) {
+        this.hidden = hidden;
     }
 }
