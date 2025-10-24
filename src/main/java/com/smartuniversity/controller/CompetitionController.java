@@ -74,7 +74,15 @@ public class CompetitionController {
             }
 
             competition.setInternalEnrollmentEnabled(Boolean.parseBoolean(competitionData.get("internalEnrollmentEnabled").toString()));
-            competition.setExternalEnrollmentUrl((String) competitionData.get("externalEnrollmentUrl"));
+
+            // Validate external enrollment URL if provided
+            String externalUrl = (String) competitionData.get("externalEnrollmentUrl");
+            if (externalUrl != null && !externalUrl.trim().isEmpty()) {
+                if (!isValidUrl(externalUrl)) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Invalid external enrollment URL format"));
+                }
+            }
+            competition.setExternalEnrollmentUrl(externalUrl);
 
             Competition savedCompetition = competitionRepository.save(competition);
 
@@ -109,8 +117,11 @@ public class CompetitionController {
 
             List<Map<String, Object>> response = new ArrayList<>();
             for (Competition comp : competitions) {
-                Map<String, Object> compData = buildCompetitionResponse(comp);
-                response.add(compData);
+                // Skip hidden competitions
+                if (!comp.isHidden()) {
+                    Map<String, Object> compData = buildCompetitionResponse(comp);
+                    response.add(compData);
+                }
             }
 
             return ResponseEntity.ok(response);
@@ -387,6 +398,11 @@ public class CompetitionController {
             Competition competition = competitionRepository.findById(competitionId)
                 .orElseThrow(() -> new RuntimeException("Competition not found"));
 
+            // Validate status transition
+            if (competition.getStatus() != ApprovalStatus.PENDING) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Only pending competitions can be approved"));
+            }
+
             competition.setStatus(ApprovalStatus.APPROVED);
             competition.setApprovedAt(LocalDateTime.now());
             competition.setApprovedBy(adminId);
@@ -413,13 +429,88 @@ public class CompetitionController {
             Competition competition = competitionRepository.findById(competitionId)
                 .orElseThrow(() -> new RuntimeException("Competition not found"));
 
+            // Validate status transition
+            if (competition.getStatus() != ApprovalStatus.PENDING) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Only pending competitions can be rejected"));
+            }
+
+            // Validate rejection reason
+            String reason = data.get("reason");
+            if (reason == null || reason.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Rejection reason is required"));
+            }
+
             competition.setStatus(ApprovalStatus.REJECTED);
-            competition.setRejectionReason(data.get("reason"));
+            competition.setRejectionReason(reason);
+            competition.setRejectedAt(LocalDateTime.now());
+            competition.setRejectedBy(adminId);
             competitionRepository.save(competition);
 
             return ResponseEntity.ok(Map.of("message", "Competition rejected"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // Admin: Hide/Delete competition (soft delete)
+    @PostMapping("/{competitionId}/hide")
+    public ResponseEntity<?> hideCompetition(@PathVariable Long competitionId, @RequestParam Long adminId) {
+        try {
+            // Verify admin role
+            User admin = userRepository.findById(adminId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+            if (admin.getRole() != User.UserRole.ADMIN) {
+                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
+            }
+
+            Competition competition = competitionRepository.findById(competitionId)
+                .orElseThrow(() -> new RuntimeException("Competition not found"));
+
+            competition.setHidden(true);
+            competitionRepository.save(competition);
+
+            return ResponseEntity.ok(Map.of("message", "Competition hidden successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // Admin: Unhide competition
+    @PostMapping("/{competitionId}/unhide")
+    public ResponseEntity<?> unhideCompetition(@PathVariable Long competitionId, @RequestParam Long adminId) {
+        try {
+            // Verify admin role
+            User admin = userRepository.findById(adminId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+            if (admin.getRole() != User.UserRole.ADMIN) {
+                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
+            }
+
+            Competition competition = competitionRepository.findById(competitionId)
+                .orElseThrow(() -> new RuntimeException("Competition not found"));
+
+            competition.setHidden(false);
+            competitionRepository.save(competition);
+
+            return ResponseEntity.ok(Map.of("message", "Competition unhidden successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // Helper method to validate URL format
+    private boolean isValidUrl(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            java.net.URL urlObj = new java.net.URL(url);
+            String protocol = urlObj.getProtocol();
+            return "http".equals(protocol) || "https".equals(protocol);
+        } catch (Exception e) {
+            return false;
         }
     }
 
