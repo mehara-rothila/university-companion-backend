@@ -1,5 +1,6 @@
 package com.smartuniversity.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.smartuniversity.model.Notification;
 
 import java.time.LocalDateTime;
@@ -13,8 +14,13 @@ public class NotificationResponse {
     private Notification.NotificationPriority priority;
     private Notification.NotificationTarget target;
     private Set<Long> targetUserIds;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime createdAt;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime expiresAt;
+    
     private Boolean isActive;
     private String createdByName;
     private Long createdById;
