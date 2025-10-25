@@ -1,5 +1,6 @@
 package com.smartuniversity.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.smartuniversity.model.LostFoundItem;
 
 import java.time.LocalDateTime;
@@ -13,7 +14,10 @@ public class LostFoundItemResponse {
     private String description;
     private String category;
     private String location;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime dateReported;
+    
     private String imageUrl;
     private Double reward;
     private LostFoundItem.ContactMethod contactMethod;
@@ -22,7 +26,11 @@ public class LostFoundItemResponse {
     private Long postedByUserId;
     private LostFoundItem.Priority priority;
     private Set<String> tags;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime createdAt;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime updatedAt;
     
     public LostFoundItemResponse() {}
