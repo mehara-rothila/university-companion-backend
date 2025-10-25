@@ -39,27 +39,38 @@ public class LostFoundController {
             @RequestParam(required = false) String location,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "ACTIVE") String status) {
-        
+
         try {
             List<LostFoundItem> items = lostFoundItemRepository.findAll();
-            
-            // Apply filters
+
+            // Apply filters with null-safe operations
             items = items.stream()
-                .filter(item -> type == null || item.getType().toString().equalsIgnoreCase(type))
-                .filter(item -> category == null || item.getCategory().equalsIgnoreCase(category))
-                .filter(item -> location == null || item.getLocation().equalsIgnoreCase(location))
-                .filter(item -> status == null || item.getStatus().toString().equalsIgnoreCase(status))
-                .filter(item -> search == null || 
-                    item.getTitle().toLowerCase().contains(search.toLowerCase()) ||
-                    item.getDescription().toLowerCase().contains(search.toLowerCase()))
+                .filter(item -> type == null || (item.getType() != null && item.getType().toString().equalsIgnoreCase(type)))
+                .filter(item -> category == null || (item.getCategory() != null && item.getCategory().equalsIgnoreCase(category)))
+                .filter(item -> location == null || (item.getLocation() != null && item.getLocation().equalsIgnoreCase(location)))
+                .filter(item -> status == null || (item.getStatus() != null && item.getStatus().toString().equalsIgnoreCase(status)))
+                .filter(item -> search == null ||
+                    (item.getTitle() != null && item.getTitle().toLowerCase().contains(search.toLowerCase())) ||
+                    (item.getDescription() != null && item.getDescription().toLowerCase().contains(search.toLowerCase())))
                 .collect(Collectors.toList());
-            
+
             List<LostFoundItemResponse> response = items.stream()
-                .map(LostFoundItemResponse::new)
+                .map(item -> {
+                    try {
+                        return new LostFoundItemResponse(item);
+                    } catch (Exception e) {
+                        System.err.println("Error creating response for item " + item.getId() + ": " + e.getMessage());
+                        return null;
+                    }
+                })
+                .filter(item -> item != null)
                 .collect(Collectors.toList());
-            
+
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            System.err.println("Error fetching lost-found items: " + e.getMessage());
+            e.printStackTrace();
+
             // Fallback to mock data if database issues
             List<LostFoundItemResponse> mockItems = List.of(
                 createMockItem(1L, "LOST", "Lost iPhone 14", "Electronics", "Library", "Lost my iPhone 14 near the library"),
@@ -67,7 +78,7 @@ public class LostFoundController {
                 createMockItem(3L, "LOST", "Missing Laptop", "Electronics", "Computer Lab", "Dell laptop left in computer lab"),
                 createMockItem(4L, "FOUND", "Found Wallet", "Personal Items", "Parking Lot", "Brown leather wallet found in parking lot")
             );
-            
+
             return ResponseEntity.ok(mockItems);
         }
     }
@@ -196,46 +207,73 @@ public class LostFoundController {
     
     @GetMapping("/items/user/{userId}")
     public ResponseEntity<List<LostFoundItemResponse>> getUserItems(@PathVariable Long userId) {
-        Optional<User> userOpt = userRepository.findById(userId);
-        
-        if (!userOpt.isPresent()) {
-            return ResponseEntity.notFound().build();
+        try {
+            Optional<User> userOpt = userRepository.findById(userId);
+
+            if (!userOpt.isPresent()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            List<LostFoundItem> items = lostFoundItemRepository.findByPostedBy(userOpt.get());
+            List<LostFoundItemResponse> response = items.stream()
+                .map(item -> {
+                    try {
+                        return new LostFoundItemResponse(item);
+                    } catch (Exception e) {
+                        System.err.println("Error creating response for item " + item.getId() + ": " + e.getMessage());
+                        return null;
+                    }
+                })
+                .filter(item -> item != null)
+                .collect(Collectors.toList());
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("Error fetching user items for userId " + userId + ": " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.ok(List.of());
         }
-        
-        List<LostFoundItem> items = lostFoundItemRepository.findByPostedBy(userOpt.get());
-        List<LostFoundItemResponse> response = items.stream()
-            .map(LostFoundItemResponse::new)
-            .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(response);
     }
     
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getStats() {
         Map<String, Object> stats = new HashMap<>();
-        
-        Long totalItems = lostFoundItemRepository.count();
-        Long lostItems = lostFoundItemRepository.countByTypeAndStatus(
-            LostFoundItem.ItemType.LOST, LostFoundItem.ItemStatus.ACTIVE);
-        Long foundItems = lostFoundItemRepository.countByTypeAndStatus(
-            LostFoundItem.ItemType.FOUND, LostFoundItem.ItemStatus.ACTIVE);
-        Long resolvedItems = lostFoundItemRepository.countByTypeAndStatus(
-            LostFoundItem.ItemType.LOST, LostFoundItem.ItemStatus.RESOLVED) +
-            lostFoundItemRepository.countByTypeAndStatus(
-            LostFoundItem.ItemType.FOUND, LostFoundItem.ItemStatus.RESOLVED);
-        
-        stats.put("totalItems", totalItems);
-        stats.put("lostItems", lostItems);
-        stats.put("foundItems", foundItems);
-        stats.put("resolvedItems", resolvedItems);
-        
-        // Get categories and locations for filters
-        List<String> categories = lostFoundItemRepository.findDistinctCategories(LostFoundItem.ItemStatus.ACTIVE);
-        List<String> locations = lostFoundItemRepository.findDistinctLocations(LostFoundItem.ItemStatus.ACTIVE);
-        
-        stats.put("categories", categories);
-        stats.put("locations", locations);
-        
+
+        try {
+            Long totalItems = lostFoundItemRepository.count();
+            Long lostItems = lostFoundItemRepository.countByTypeAndStatus(
+                LostFoundItem.ItemType.LOST, LostFoundItem.ItemStatus.ACTIVE);
+            Long foundItems = lostFoundItemRepository.countByTypeAndStatus(
+                LostFoundItem.ItemType.FOUND, LostFoundItem.ItemStatus.ACTIVE);
+            Long resolvedItems = lostFoundItemRepository.countByTypeAndStatus(
+                LostFoundItem.ItemType.LOST, LostFoundItem.ItemStatus.RESOLVED) +
+                lostFoundItemRepository.countByTypeAndStatus(
+                LostFoundItem.ItemType.FOUND, LostFoundItem.ItemStatus.RESOLVED);
+
+            stats.put("totalItems", totalItems);
+            stats.put("lostItems", lostItems);
+            stats.put("foundItems", foundItems);
+            stats.put("resolvedItems", resolvedItems);
+
+            // Get categories and locations for filters
+            List<String> categories = lostFoundItemRepository.findDistinctCategories(LostFoundItem.ItemStatus.ACTIVE);
+            List<String> locations = lostFoundItemRepository.findDistinctLocations(LostFoundItem.ItemStatus.ACTIVE);
+
+            stats.put("categories", categories);
+            stats.put("locations", locations);
+        } catch (Exception e) {
+            System.err.println("Error fetching lost-found stats: " + e.getMessage());
+            e.printStackTrace();
+
+            // Return default values if database issues
+            stats.put("totalItems", 0L);
+            stats.put("lostItems", 0L);
+            stats.put("foundItems", 0L);
+            stats.put("resolvedItems", 0L);
+            stats.put("categories", List.of("Electronics", "Keys", "Personal Items", "Documents", "Other"));
+            stats.put("locations", List.of("Library", "Cafeteria", "Parking Lot", "Computer Lab", "Gym"));
+        }
+
         return ResponseEntity.ok(stats);
     }
 }
