@@ -44,24 +44,34 @@ public class FinancialAidController {
             @RequestParam(required = false) String aidType,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String urgency) {
-        
+
         try {
-            FinancialAid.ApplicationStatus statusEnum = status != null ? 
+            FinancialAid.ApplicationStatus statusEnum = status != null ?
                 FinancialAid.ApplicationStatus.valueOf(status.toUpperCase()) : null;
-            FinancialAid.AidType aidTypeEnum = aidType != null ? 
+            FinancialAid.AidType aidTypeEnum = aidType != null ?
                 FinancialAid.AidType.valueOf(aidType.toUpperCase()) : null;
-            FinancialAid.Urgency urgencyEnum = urgency != null ? 
+            FinancialAid.Urgency urgencyEnum = urgency != null ?
                 FinancialAid.Urgency.valueOf(urgency.toUpperCase()) : null;
-            
+
             List<FinancialAid> applications = financialAidRepository.findByFilters(
                 statusEnum, aidTypeEnum, category, urgencyEnum);
-            
+
             List<FinancialAidResponse> response = applications.stream()
-                .map(FinancialAidResponse::new)
+                .map(app -> {
+                    try {
+                        return new FinancialAidResponse(app);
+                    } catch (Exception e) {
+                        System.err.println("Error creating response for application " + app.getId() + ": " + e.getMessage());
+                        return null;
+                    }
+                })
+                .filter(app -> app != null)
                 .collect(Collectors.toList());
-            
+
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            System.err.println("Error fetching financial aid applications: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.ok(getMockApplications());
         }
     }
@@ -152,18 +162,32 @@ public class FinancialAidController {
     
     @GetMapping("/applications/user/{userId}")
     public ResponseEntity<List<FinancialAidResponse>> getUserApplications(@PathVariable Long userId) {
-        Optional<User> userOpt = userRepository.findById(userId);
-        
-        if (!userOpt.isPresent()) {
-            return ResponseEntity.notFound().build();
+        try {
+            Optional<User> userOpt = userRepository.findById(userId);
+
+            if (!userOpt.isPresent()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            List<FinancialAid> applications = financialAidRepository.findByApplicant(userOpt.get());
+            List<FinancialAidResponse> response = applications.stream()
+                .map(app -> {
+                    try {
+                        return new FinancialAidResponse(app);
+                    } catch (Exception e) {
+                        System.err.println("Error creating response for application " + app.getId() + ": " + e.getMessage());
+                        return null;
+                    }
+                })
+                .filter(app -> app != null)
+                .collect(Collectors.toList());
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("Error fetching user applications for userId " + userId + ": " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.ok(List.of());
         }
-        
-        List<FinancialAid> applications = financialAidRepository.findByApplicant(userOpt.get());
-        List<FinancialAidResponse> response = applications.stream()
-            .map(FinancialAidResponse::new)
-            .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(response);
     }
     
     @GetMapping("/donations")
@@ -171,13 +195,23 @@ public class FinancialAidController {
         try {
             List<FinancialAid> applications = financialAidRepository.findActiveDonationEligibleApplications(
                 FinancialAid.ApplicationStatus.APPROVED);
-            
+
             List<FinancialAidResponse> response = applications.stream()
-                .map(FinancialAidResponse::new)
+                .map(app -> {
+                    try {
+                        return new FinancialAidResponse(app);
+                    } catch (Exception e) {
+                        System.err.println("Error creating response for donation application " + app.getId() + ": " + e.getMessage());
+                        return null;
+                    }
+                })
+                .filter(app -> app != null)
                 .collect(Collectors.toList());
-            
+
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            System.err.println("Error fetching donation eligible applications: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.ok(getMockDonationApplications());
         }
     }
