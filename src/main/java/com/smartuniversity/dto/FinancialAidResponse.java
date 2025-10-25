@@ -1,10 +1,9 @@
 package com.smartuniversity.dto;
 
 import com.smartuniversity.model.FinancialAid;
-import com.fasterxml.jackson.annotation.JsonFormat;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class FinancialAidResponse {
     
@@ -26,19 +25,12 @@ public class FinancialAidResponse {
     private String applicantName;
     private Long applicantId;
     private String reviewedByName;
-    
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime reviewedAt;
-    
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime applicationDeadline;
-    
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime createdAt;
-    
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime updatedAt;
-    
+
+    private String reviewedAt;
+    private String applicationDeadline;
+    private String createdAt;
+    private String updatedAt;
+
     private boolean isDonationEligible;
     private BigDecimal raisedAmount;
     private Integer supporterCount;
@@ -46,6 +38,8 @@ public class FinancialAidResponse {
     public FinancialAidResponse() {}
     
     public FinancialAidResponse(FinancialAid financialAid) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+
         this.id = financialAid.getId();
         this.title = financialAid.getTitle();
         this.description = financialAid.getDescription();
@@ -61,21 +55,21 @@ public class FinancialAidResponse {
         this.personalStory = financialAid.getPersonalStory();
         this.adminNotes = financialAid.getAdminNotes();
         this.rejectionReason = financialAid.getRejectionReason();
-        this.reviewedAt = financialAid.getReviewedAt();
-        this.applicationDeadline = financialAid.getApplicationDeadline();
-        this.createdAt = financialAid.getCreatedAt();
-        this.updatedAt = financialAid.getUpdatedAt();
+        this.reviewedAt = financialAid.getReviewedAt() != null ? financialAid.getReviewedAt().format(formatter) : null;
+        this.applicationDeadline = financialAid.getApplicationDeadline() != null ? financialAid.getApplicationDeadline().format(formatter) : null;
+        this.createdAt = financialAid.getCreatedAt() != null ? financialAid.getCreatedAt().format(formatter) : null;
+        this.updatedAt = financialAid.getUpdatedAt() != null ? financialAid.getUpdatedAt().format(formatter) : null;
         this.isDonationEligible = financialAid.isDonationEligible();
         this.raisedAmount = financialAid.getRaisedAmount();
         this.supporterCount = financialAid.getSupporterCount();
-        
+
         if (financialAid.getApplicant() != null) {
             this.applicantId = financialAid.getApplicant().getId();
             if (!financialAid.isAnonymous()) {
                 this.applicantName = financialAid.getApplicant().getUsername();
             }
         }
-        
+
         if (financialAid.getReviewedBy() != null) {
             this.reviewedByName = financialAid.getReviewedBy().getUsername();
         }
@@ -135,18 +129,18 @@ public class FinancialAidResponse {
     
     public String getReviewedByName() { return reviewedByName; }
     public void setReviewedByName(String reviewedByName) { this.reviewedByName = reviewedByName; }
-    
-    public LocalDateTime getReviewedAt() { return reviewedAt; }
-    public void setReviewedAt(LocalDateTime reviewedAt) { this.reviewedAt = reviewedAt; }
-    
-    public LocalDateTime getApplicationDeadline() { return applicationDeadline; }
-    public void setApplicationDeadline(LocalDateTime applicationDeadline) { this.applicationDeadline = applicationDeadline; }
-    
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public String getReviewedAt() { return reviewedAt; }
+    public void setReviewedAt(String reviewedAt) { this.reviewedAt = reviewedAt; }
+
+    public String getApplicationDeadline() { return applicationDeadline; }
+    public void setApplicationDeadline(String applicationDeadline) { this.applicationDeadline = applicationDeadline; }
+
+    public String getCreatedAt() { return createdAt; }
+    public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
+
+    public String getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(String updatedAt) { this.updatedAt = updatedAt; }
     
     public boolean isDonationEligible() { return isDonationEligible; }
     public void setDonationEligible(boolean donationEligible) { isDonationEligible = donationEligible; }
