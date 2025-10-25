@@ -6,6 +6,7 @@ import com.smartuniversity.model.LostFoundItem;
 import com.smartuniversity.model.User;
 import com.smartuniversity.repository.LostFoundItemRepository;
 import com.smartuniversity.repository.UserRepository;
+import com.smartuniversity.security.JwtUtils;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -21,12 +22,15 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/lost-found")
 public class LostFoundController {
-    
+
     @Autowired
     private LostFoundItemRepository lostFoundItemRepository;
-    
+
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private JwtUtils jwtUtils;
     
     @GetMapping("/items")
     public ResponseEntity<List<LostFoundItemResponse>> getAllItems(
@@ -97,21 +101,43 @@ public class LostFoundController {
     }
     
     @PostMapping("/items")
-    public ResponseEntity<?> createItem(@Valid @RequestBody LostFoundItemRequest request) {
-        // For now, try to find any user. In real implementation, get from authentication
+    public ResponseEntity<?> createItem(
+            @Valid @RequestBody LostFoundItemRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+
         User user = null;
 
-        // Try to find user ID 1 first, then any user
-        Optional<User> userOpt = userRepository.findById(1L);
-        if (!userOpt.isPresent()) {
-            // Try to find any user
-            List<User> users = userRepository.findAll();
-            if (!users.isEmpty()) {
-                user = users.get(0);
+        // Try to get user from JWT token
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            try {
+                String jwt = authHeader.substring(7); // Remove "Bearer " prefix
+                String username = jwtUtils.getUserNameFromJwtToken(jwt);
+
+                if (username != null) {
+                    user = userRepository.findByUsername(username).orElse(null);
+                    System.out.println("Found user from JWT: " + username + " (ID: " + (user != null ? user.getId() : "null") + ")");
+                }
+            } catch (Exception e) {
+                System.err.println("Error extracting user from JWT: " + e.getMessage());
             }
-            // If still no user found, user remains null (will work if postedBy is nullable)
-        } else {
-            user = userOpt.get();
+        }
+
+        // Fallback: Try to find user ID 1 first, then any user
+        if (user == null) {
+            System.out.println("No user from JWT, trying fallback methods...");
+            Optional<User> userOpt = userRepository.findById(1L);
+            if (!userOpt.isPresent()) {
+                // Try to find any user
+                List<User> users = userRepository.findAll();
+                if (!users.isEmpty()) {
+                    user = users.get(0);
+                    System.out.println("Using first available user: " + user.getUsername());
+                }
+                // If still no user found, user remains null (will work if postedBy is nullable)
+            } else {
+                user = userOpt.get();
+                System.out.println("Using user ID 1");
+            }
         }
 
         LostFoundItem item = new LostFoundItem(
