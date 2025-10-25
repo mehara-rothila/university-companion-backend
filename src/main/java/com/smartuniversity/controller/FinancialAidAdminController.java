@@ -7,6 +7,7 @@ import com.smartuniversity.model.FinancialAid;
 import com.smartuniversity.model.User;
 import com.smartuniversity.repository.FinancialAidRepository;
 import com.smartuniversity.repository.UserRepository;
+import com.smartuniversity.util.AuthUtils;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -26,9 +27,12 @@ public class FinancialAidAdminController {
     
     @Autowired
     private FinancialAidRepository financialAidRepository;
-    
+
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private AuthUtils authUtils;
     
     @GetMapping("/applications")
     public ResponseEntity<List<FinancialAidResponse>> getAllApplicationsForReview(
@@ -82,22 +86,24 @@ public class FinancialAidAdminController {
     }
     
     @PutMapping("/applications/{id}/review")
-    public ResponseEntity<?> reviewApplication(@PathVariable Long id, 
-                                             @Valid @RequestBody AdminReviewRequest request) {
+    public ResponseEntity<?> reviewApplication(
+            @PathVariable Long id,
+            @Valid @RequestBody AdminReviewRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+
         Optional<FinancialAid> applicationOpt = financialAidRepository.findById(id);
-        
+
         if (!applicationOpt.isPresent()) {
             return ResponseEntity.notFound().build();
         }
-        
-        // Get admin user (in real implementation, get from authentication)
-        Optional<User> adminOpt = userRepository.findById(1L);
-        if (!adminOpt.isPresent()) {
-            return ResponseEntity.badRequest().body("Admin user not found");
+
+        // Get admin user from authentication
+        User admin = authUtils.getUserFromAuthHeader(authHeader);
+        if (admin == null) {
+            return ResponseEntity.badRequest().body("Admin user not found. Please log in.");
         }
-        
+
         FinancialAid application = applicationOpt.get();
-        User admin = adminOpt.get();
         
         application.setStatus(request.getStatus());
         application.setApprovedAmount(request.getApprovedAmount());
@@ -226,22 +232,23 @@ public class FinancialAidAdminController {
     }
     
     @PostMapping("/applications/create")
-    public ResponseEntity<?> createApplicationForUser(@Valid @RequestBody AdminFinancialAidRequest request) {
+    public ResponseEntity<?> createApplicationForUser(
+            @Valid @RequestBody AdminFinancialAidRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
             // Find the applicant user
             Optional<User> applicantOpt = userRepository.findById(request.getApplicantUserId());
             if (!applicantOpt.isPresent()) {
                 return ResponseEntity.badRequest().body("Applicant user not found");
             }
-            
-            // Get admin user (in real implementation, get from authentication)
-            Optional<User> adminOpt = userRepository.findById(1L);
-            if (!adminOpt.isPresent()) {
-                return ResponseEntity.badRequest().body("Admin user not found");
+
+            // Get admin user from authentication (for audit trail)
+            User admin = authUtils.getUserFromAuthHeader(authHeader);
+            if (admin == null) {
+                return ResponseEntity.badRequest().body("Admin user not found. Please log in.");
             }
-            
+
             User applicant = applicantOpt.get();
-            User admin = adminOpt.get();
             
             // Create the financial aid application
             FinancialAid application = new FinancialAid(
