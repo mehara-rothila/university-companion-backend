@@ -1,5 +1,6 @@
 package com.smartuniversity.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.LocalDateTime;
 
 public class UserFileResponse {
@@ -10,7 +11,10 @@ public class UserFileResponse {
     private String source; // "lost_found", "book_photo", "book_pdf"
     private String sourceTitle; // Title of the item/book
     private Long fileSize; // in bytes, null for images
+    
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime uploadedAt;
+    
     private String category; // Additional context
 
     public UserFileResponse() {}
