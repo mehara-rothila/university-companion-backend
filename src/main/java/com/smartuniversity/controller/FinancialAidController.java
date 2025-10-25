@@ -108,11 +108,11 @@ public class FinancialAidController {
         
         application.setPriority(request.getPriority());
         application.setUrgency(request.getUrgency());
-        application.setAnonymous(request.isAnonymous());
+        application.setAnonymous(request.getIsAnonymous());
         application.setSupportingDocuments(request.getSupportingDocuments());
         application.setPersonalStory(request.getPersonalStory());
         application.setApplicationDeadline(request.getApplicationDeadline());
-        application.setDonationEligible(request.isDonationEligible());
+        application.setDonationEligible(request.getIsDonationEligible());
         
         FinancialAid savedApplication = financialAidRepository.save(application);
         
@@ -137,11 +137,11 @@ public class FinancialAidController {
         application.setRequestedAmount(request.getRequestedAmount());
         application.setPriority(request.getPriority());
         application.setUrgency(request.getUrgency());
-        application.setAnonymous(request.isAnonymous());
+        application.setAnonymous(request.getIsAnonymous());
         application.setSupportingDocuments(request.getSupportingDocuments());
         application.setPersonalStory(request.getPersonalStory());
         application.setApplicationDeadline(request.getApplicationDeadline());
-        application.setDonationEligible(request.isDonationEligible());
+        application.setDonationEligible(request.getIsDonationEligible());
         
         FinancialAid savedApplication = financialAidRepository.save(application);
         
