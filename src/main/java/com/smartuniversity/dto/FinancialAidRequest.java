@@ -70,8 +70,8 @@ public class FinancialAidRequest {
     public FinancialAid.Urgency getUrgency() { return urgency; }
     public void setUrgency(FinancialAid.Urgency urgency) { this.urgency = urgency; }
     
-    public boolean isAnonymous() { return isAnonymous; }
-    public void setAnonymous(boolean anonymous) { isAnonymous = anonymous; }
+    public boolean getIsAnonymous() { return isAnonymous; }
+    public void setIsAnonymous(boolean anonymous) { isAnonymous = anonymous; }
     
     public String getSupportingDocuments() { return supportingDocuments; }
     public void setSupportingDocuments(String supportingDocuments) { this.supportingDocuments = supportingDocuments; }
@@ -82,6 +82,6 @@ public class FinancialAidRequest {
     public LocalDateTime getApplicationDeadline() { return applicationDeadline; }
     public void setApplicationDeadline(LocalDateTime applicationDeadline) { this.applicationDeadline = applicationDeadline; }
     
-    public boolean isDonationEligible() { return isDonationEligible; }
-    public void setDonationEligible(boolean donationEligible) { isDonationEligible = donationEligible; }
+    public boolean getIsDonationEligible() { return isDonationEligible; }
+    public void setIsDonationEligible(boolean donationEligible) { isDonationEligible = donationEligible; }
 }
