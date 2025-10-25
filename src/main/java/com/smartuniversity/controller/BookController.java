@@ -27,11 +27,20 @@ public class BookController {
     @Autowired
     private UserRatingRepository userRatingRepository;
 
+    // Health check endpoint - verify deployed version
+    @GetMapping("/health")
+    public ResponseEntity<String> health() {
+        return ResponseEntity.ok("Books API v2.0 - Error handling fixes applied - 2025-10-25");
+    }
+
     // Get all books
     @GetMapping
     public ResponseEntity<List<Book>> getAllBooks() {
+        System.out.println("=== getAllBooks() called ===");
         try {
+            System.out.println("Attempting to fetch books from database...");
             List<Book> books = bookRepository.findAll();
+            System.out.println("Successfully fetched " + books.size() + " books");
             // Enrich each book with owner's rating
             books.forEach(book -> {
                 try {
