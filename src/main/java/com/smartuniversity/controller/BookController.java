@@ -30,15 +30,29 @@ public class BookController {
     // Get all books
     @GetMapping
     public ResponseEntity<List<Book>> getAllBooks() {
-        List<Book> books = bookRepository.findAll();
-        // Enrich each book with owner's rating
-        books.forEach(book -> {
-            Double rating = userRatingRepository.getAverageRatingForUser(book.getOwnerId());
-            if (rating != null) {
-                book.setOwnerRating(Math.round(rating * 10.0) / 10.0);
-            }
-        });
-        return ResponseEntity.ok(books);
+        try {
+            List<Book> books = bookRepository.findAll();
+            // Enrich each book with owner's rating
+            books.forEach(book -> {
+                try {
+                    if (book.getOwnerId() != null) {
+                        Double rating = userRatingRepository.getAverageRatingForUser(book.getOwnerId());
+                        if (rating != null) {
+                            book.setOwnerRating(Math.round(rating * 10.0) / 10.0);
+                        }
+                    }
+                } catch (Exception e) {
+                    // Skip rating if there's an error, book will just have null rating
+                    System.err.println("Error getting rating for book " + book.getId() + ": " + e.getMessage());
+                }
+            });
+            return ResponseEntity.ok(books);
+        } catch (Exception e) {
+            System.err.println("Error fetching books: " + e.getMessage());
+            e.printStackTrace();
+            // Return empty list instead of error
+            return ResponseEntity.ok(List.of());
+        }
     }
 
     // Get books by type (PHYSICAL or DIGITAL)
