@@ -7,6 +7,7 @@ import com.smartuniversity.model.User;
 import com.smartuniversity.repository.FinancialAidRepository;
 import com.smartuniversity.repository.FinancialAidDonationRepository;
 import com.smartuniversity.repository.UserRepository;
+import com.smartuniversity.util.AuthUtils;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -27,12 +28,15 @@ public class FinancialAidController {
     
     @Autowired
     private FinancialAidRepository financialAidRepository;
-    
+
     @Autowired
     private FinancialAidDonationRepository donationRepository;
-    
+
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private AuthUtils authUtils;
     
     @GetMapping("/applications")
     public ResponseEntity<List<FinancialAidResponse>> getAllApplications(
@@ -74,13 +78,14 @@ public class FinancialAidController {
     }
     
     @PostMapping("/applications")
-    public ResponseEntity<?> createApplication(@Valid @RequestBody FinancialAidRequest request) {
-        Optional<User> userOpt = userRepository.findById(1L);
-        if (!userOpt.isPresent()) {
-            return ResponseEntity.badRequest().body("User not found");
+    public ResponseEntity<?> createApplication(
+            @Valid @RequestBody FinancialAidRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+
+        User user = authUtils.getUserFromAuthHeader(authHeader);
+        if (user == null) {
+            return ResponseEntity.badRequest().body("User not found. Please log in.");
         }
-        
-        User user = userOpt.get();
         
         FinancialAid application = new FinancialAid(
             request.getTitle(),
@@ -178,19 +183,21 @@ public class FinancialAidController {
     }
     
     @PostMapping("/donations")
-    public ResponseEntity<?> makeDonation(@Valid @RequestBody FinancialAidDonationRequest request) {
+    public ResponseEntity<?> makeDonation(
+            @Valid @RequestBody FinancialAidDonationRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+
         Optional<FinancialAid> applicationOpt = financialAidRepository.findById(request.getFinancialAidId());
         if (!applicationOpt.isPresent()) {
             return ResponseEntity.badRequest().body("Financial aid application not found");
         }
-        
-        Optional<User> userOpt = userRepository.findById(1L);
-        if (!userOpt.isPresent()) {
-            return ResponseEntity.badRequest().body("User not found");
+
+        User donor = authUtils.getUserFromAuthHeader(authHeader);
+        if (donor == null) {
+            return ResponseEntity.badRequest().body("User not found. Please log in.");
         }
-        
+
         FinancialAid application = applicationOpt.get();
-        User donor = userOpt.get();
         
         FinancialAidDonation donation = new FinancialAidDonation(
             application, donor, request.getAmount());
