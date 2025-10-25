@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -320,8 +321,8 @@ public class FinancialAidController {
         response.setPriority(FinancialAid.Priority.MEDIUM);
         response.setUrgency(FinancialAid.Urgency.MEDIUM);
         response.setAnonymous(isAnonymous);
-        response.setCreatedAt(LocalDateTime.now().minusDays((long)(Math.random() * 30)));
-        response.setUpdatedAt(LocalDateTime.now().minusDays((long)(Math.random() * 7)));
+        response.setCreatedAt(LocalDateTime.now().minusDays((long)(Math.random() * 30)).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
+        response.setUpdatedAt(LocalDateTime.now().minusDays((long)(Math.random() * 7)).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
         response.setDonationEligible(true);
         response.setRaisedAmount(BigDecimal.ZERO);
         response.setSupporterCount(0);
@@ -342,8 +343,8 @@ public class FinancialAidController {
         response.setPriority(FinancialAid.Priority.MEDIUM);
         response.setUrgency(FinancialAid.Urgency.HIGH);
         response.setAnonymous(true);
-        response.setCreatedAt(LocalDateTime.now().minusDays((long)(Math.random() * 20)));
-        response.setUpdatedAt(LocalDateTime.now().minusDays((long)(Math.random() * 5)));
+        response.setCreatedAt(LocalDateTime.now().minusDays((long)(Math.random() * 20)).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
+        response.setUpdatedAt(LocalDateTime.now().minusDays((long)(Math.random() * 5)).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
         response.setDonationEligible(true);
         response.setRaisedAmount(raised);
         response.setSupporterCount(supporters);
