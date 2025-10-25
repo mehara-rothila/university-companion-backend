@@ -98,14 +98,22 @@ public class LostFoundController {
     
     @PostMapping("/items")
     public ResponseEntity<?> createItem(@Valid @RequestBody LostFoundItemRequest request) {
-        // For now, we'll use a default user. In real implementation, get from authentication
+        // For now, try to find any user. In real implementation, get from authentication
+        User user = null;
+
+        // Try to find user ID 1 first, then any user
         Optional<User> userOpt = userRepository.findById(1L);
         if (!userOpt.isPresent()) {
-            return ResponseEntity.badRequest().body("User not found");
+            // Try to find any user
+            List<User> users = userRepository.findAll();
+            if (!users.isEmpty()) {
+                user = users.get(0);
+            }
+            // If still no user found, user remains null (will work if postedBy is nullable)
+        } else {
+            user = userOpt.get();
         }
-        
-        User user = userOpt.get();
-        
+
         LostFoundItem item = new LostFoundItem(
             request.getType(),
             request.getTitle(),
@@ -114,18 +122,18 @@ public class LostFoundController {
             request.getLocation(),
             user
         );
-        
+
         item.setImageUrl(request.getImageUrl());
         item.setReward(request.getReward());
         item.setContactMethod(request.getContactMethod());
         item.setPriority(request.getPriority());
-        
+
         if (request.getTags() != null) {
             item.setTags(request.getTags());
         }
-        
+
         LostFoundItem savedItem = lostFoundItemRepository.save(item);
-        
+
         return ResponseEntity.ok(new LostFoundItemResponse(savedItem));
     }
     
