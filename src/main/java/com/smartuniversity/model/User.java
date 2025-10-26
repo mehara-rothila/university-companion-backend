@@ -72,7 +72,13 @@ public class User implements UserDetails {
 
     @Size(max = 500)
     private String imageUrl; // Profile picture URL
-    
+
+    // Password reset OTP fields
+    @Size(max = 255)
+    private String resetPasswordOtp; // Hashed OTP for password reset
+
+    private LocalDateTime resetPasswordOtpExpiry; // OTP expiration time
+
     public enum UserRole {
         STUDENT, FACULTY, ADMIN
     }
@@ -167,4 +173,10 @@ public class User implements UserDetails {
 
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
+    public String getResetPasswordOtp() { return resetPasswordOtp; }
+    public void setResetPasswordOtp(String resetPasswordOtp) { this.resetPasswordOtp = resetPasswordOtp; }
+
+    public LocalDateTime getResetPasswordOtpExpiry() { return resetPasswordOtpExpiry; }
+    public void setResetPasswordOtpExpiry(LocalDateTime resetPasswordOtpExpiry) { this.resetPasswordOtpExpiry = resetPasswordOtpExpiry; }
 }

@@ -68,7 +68,8 @@ public class Competition {
     @Column(length = 500)
     private String rejectionReason;
 
-    private boolean hidden = false; // For soft delete by admin
+    @Column(nullable = true)
+    private Boolean hidden = false; // For soft delete by admin
 
     public enum ApprovalStatus {
         PENDING, APPROVED, REJECTED
@@ -266,7 +267,7 @@ public class Competition {
     }
 
     public boolean isHidden() {
-        return hidden;
+        return hidden != null && hidden;
     }
 
     public void setHidden(boolean hidden) {
