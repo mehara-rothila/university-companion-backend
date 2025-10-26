@@ -55,7 +55,10 @@ public class LostFoundItemResponse {
         if (item.getPostedBy() != null) {
             this.postedByUserId = item.getPostedBy().getId();
             if (item.getContactMethod() == LostFoundItem.ContactMethod.DIRECT) {
-                this.postedBy = item.getPostedBy().getFirstName() + " " + item.getPostedBy().getLastName().charAt(0) + ".";
+                String firstName = item.getPostedBy().getFirstName() != null ? item.getPostedBy().getFirstName() : "User";
+                String lastName = item.getPostedBy().getLastName();
+                String lastInitial = (lastName != null && !lastName.isEmpty()) ? lastName.charAt(0) + "." : "";
+                this.postedBy = firstName + " " + lastInitial;
             } else {
                 this.postedBy = "Anonymous";
             }
