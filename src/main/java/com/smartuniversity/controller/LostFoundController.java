@@ -41,7 +41,8 @@ public class LostFoundController {
             @RequestParam(defaultValue = "ACTIVE") String status) {
 
         try {
-            List<LostFoundItem> items = lostFoundItemRepository.findAll();
+            // Fetch all items with user data to avoid LazyInitializationException
+            List<LostFoundItem> items = lostFoundItemRepository.findAllWithUsers();
 
             // Apply filters with null-safe operations
             items = items.stream()
