@@ -25,7 +25,7 @@ public class GeminiChatService {
     @Value("${gemini.api.key}")
     private String apiKey;
 
-    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent";
+    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
     private static final int MAX_REQUESTS_PER_HOUR = 10;
     private static final long HOUR_IN_MILLIS = 60 * 60 * 1000;
 
