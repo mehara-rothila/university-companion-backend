@@ -62,6 +62,7 @@ logs/
 application-prod.properties
 application-dev.properties
 src/main/resources/application.properties
+src/main/resources/application-local.properties
 
 # Deployment guides with sensitive information
 PRODUCTION_DEPLOYMENT_COMPLETE_GUIDE.md
