@@ -42,7 +42,15 @@ public class LostFoundController {
 
         try {
             // Fetch all items with user data to avoid LazyInitializationException
-            List<LostFoundItem> items = lostFoundItemRepository.findAllWithUsers();
+            List<LostFoundItem> items;
+            try {
+                items = lostFoundItemRepository.findAllWithUsers();
+            } catch (Exception dbError) {
+                System.err.println("Database query failed: " + dbError.getMessage());
+                dbError.printStackTrace();
+                // Return empty list if database fails
+                return ResponseEntity.ok(List.of());
+            }
 
             // Apply filters with null-safe operations
             items = items.stream()
@@ -61,6 +69,7 @@ public class LostFoundController {
                         return new LostFoundItemResponse(item);
                     } catch (Exception e) {
                         System.err.println("Error creating response for item " + item.getId() + ": " + e.getMessage());
+                        e.printStackTrace();
                         return null;
                     }
                 })
@@ -69,36 +78,11 @@ public class LostFoundController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            System.err.println("Error fetching lost-found items: " + e.getMessage());
+            System.err.println("Error in getAllItems endpoint: " + e.getMessage());
             e.printStackTrace();
-
-            // Fallback to mock data if database issues
-            List<LostFoundItemResponse> mockItems = List.of(
-                createMockItem(1L, "LOST", "Lost iPhone 14", "Electronics", "Library", "Lost my iPhone 14 near the library"),
-                createMockItem(2L, "FOUND", "Found Keys", "Keys", "Cafeteria", "Found a set of keys in the cafeteria"),
-                createMockItem(3L, "LOST", "Missing Laptop", "Electronics", "Computer Lab", "Dell laptop left in computer lab"),
-                createMockItem(4L, "FOUND", "Found Wallet", "Personal Items", "Parking Lot", "Brown leather wallet found in parking lot")
-            );
-
-            return ResponseEntity.ok(mockItems);
+            // Return empty list instead of 500 error
+            return ResponseEntity.ok(List.of());
         }
-    }
-    
-    private LostFoundItemResponse createMockItem(Long id, String type, String title, String category, String location, String description) {
-        LostFoundItemResponse item = new LostFoundItemResponse();
-        item.setId(id);
-        item.setType(LostFoundItem.ItemType.valueOf(type));
-        item.setTitle(title);
-        item.setCategory(category);
-        item.setLocation(location);
-        item.setDescription(description);
-        item.setStatus(LostFoundItem.ItemStatus.ACTIVE);
-        item.setPriority(LostFoundItem.Priority.MEDIUM);
-        item.setContactMethod(LostFoundItem.ContactMethod.DIRECT);
-        item.setDateReported(java.time.LocalDateTime.now().minusDays((long)(Math.random() * 7)));
-        item.setCreatedAt(java.time.LocalDateTime.now());
-        item.setUpdatedAt(java.time.LocalDateTime.now());
-        return item;
     }
     
     @GetMapping("/items/{id}")
