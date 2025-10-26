@@ -4,12 +4,17 @@ import com.smartuniversity.dto.JwtResponse;
 import com.smartuniversity.dto.LoginRequest;
 import com.smartuniversity.dto.SignupRequest;
 import com.smartuniversity.dto.OAuthUserRequest;
+import com.smartuniversity.dto.ForgotPasswordRequest;
+import com.smartuniversity.dto.ResetPasswordRequest;
 import com.smartuniversity.model.User;
 import com.smartuniversity.repository.UserRepository;
 import com.smartuniversity.security.JwtUtils;
 import com.smartuniversity.service.UserPrincipal;
+import com.smartuniversity.service.EmailService;
 import com.smartuniversity.model.User.UserRole;
 import jakarta.validation.Valid;
+import java.time.LocalDateTime;
+import java.security.SecureRandom;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -38,7 +43,10 @@ public class AuthController {
     
     @Autowired
     JwtUtils jwtUtils;
-    
+
+    @Autowired
+    EmailService emailService;
+
     @PostMapping("/signin")
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
         System.out.println("=== LOGIN REQUEST START ===");
@@ -81,8 +89,9 @@ public class AuthController {
         }
 
         System.out.println("User found: " + user.getUsername() + " (email: " + user.getEmail() + "), returning JWT response");
-        // For now, skip password validation and return a simple JWT
-        String jwt = "fake-jwt-token";
+        
+        // Generate real JWT token
+        String jwt = jwtUtils.generateJwtToken(user.getUsername());
 
         JwtResponse response = new JwtResponse(jwt,
                 user.getId(),
@@ -196,6 +205,142 @@ public class AuthController {
 
         System.out.println("Sending OAuth response for user: " + user.getUsername());
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Forgot Password - Generate and send OTP via email
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        System.out.println("=== FORGOT PASSWORD REQUEST ===");
+        System.out.println("Email: " + request.getEmail());
+
+        try {
+            User user = userRepository.findByEmail(request.getEmail()).orElse(null);
+
+            if (user == null) {
+                // Don't reveal if user exists or not (security best practice)
+                System.out.println("User not found, but returning success message anyway");
+                return ResponseEntity.ok().body(java.util.Map.of(
+                    "success", true,
+                    "message", "If an account with this email exists, a password reset OTP has been sent."
+                ));
+            }
+
+            // Generate 6-digit OTP
+            String otp = generateOTP();
+            System.out.println("========================================");
+            System.out.println("Generated OTP for user: " + user.getUsername());
+            System.out.println("OTP CODE: " + otp);
+            System.out.println("========================================");
+
+            // Hash the OTP before storing (same as SRI_EXPRESS approach)
+            String hashedOtp = encoder.encode(otp);
+            user.setResetPasswordOtp(hashedOtp);
+            user.setResetPasswordOtpExpiry(LocalDateTime.now().plusHours(1)); // 1 hour expiry
+            userRepository.save(user);
+
+            // Send OTP via email
+            try {
+                emailService.sendPasswordResetOTP(user.getEmail(), otp, user.getFirstName());
+                System.out.println("Password reset OTP sent successfully to: " + user.getEmail());
+            } catch (Exception emailError) {
+                System.err.println("Failed to send email: " + emailError.getMessage());
+                // Clear OTP if email fails
+                user.setResetPasswordOtp(null);
+                user.setResetPasswordOtpExpiry(null);
+                userRepository.save(user);
+
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(java.util.Map.of(
+                    "success", false,
+                    "message", "Failed to send email. Please try again later."
+                ));
+            }
+
+            return ResponseEntity.ok().body(java.util.Map.of(
+                "success", true,
+                "message", "If an account with this email exists, a password reset OTP has been sent."
+            ));
+
+        } catch (Exception e) {
+            System.err.println("Forgot password error: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(java.util.Map.of(
+                "success", false,
+                "message", "An error occurred. Please try again later."
+            ));
+        }
+    }
+
+    /**
+     * Reset Password - Verify OTP and reset password
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        System.out.println("=== RESET PASSWORD REQUEST ===");
+        System.out.println("Email: " + request.getEmail());
+
+        try {
+            // Find user by email with valid OTP
+            User user = userRepository.findByEmail(request.getEmail()).orElse(null);
+
+            if (user == null || user.getResetPasswordOtp() == null || user.getResetPasswordOtpExpiry() == null) {
+                return ResponseEntity.badRequest().body(java.util.Map.of(
+                    "success", false,
+                    "message", "Invalid OTP or expired reset request. Please try again."
+                ));
+            }
+
+            // Check if OTP has expired
+            if (user.getResetPasswordOtpExpiry().isBefore(LocalDateTime.now())) {
+                System.out.println("OTP expired for user: " + user.getUsername());
+                return ResponseEntity.badRequest().body(java.util.Map.of(
+                    "success", false,
+                    "message", "OTP has expired. Please request a new one."
+                ));
+            }
+
+            // Verify OTP matches (compare with hashed OTP)
+            boolean isOtpValid = encoder.matches(request.getOtp(), user.getResetPasswordOtp());
+
+            if (!isOtpValid) {
+                System.out.println("Invalid OTP provided for user: " + user.getUsername());
+                return ResponseEntity.badRequest().body(java.util.Map.of(
+                    "success", false,
+                    "message", "Invalid OTP. Please check and try again."
+                ));
+            }
+
+            // Reset password
+            user.setPassword(encoder.encode(request.getNewPassword()));
+            user.setResetPasswordOtp(null); // Clear OTP
+            user.setResetPasswordOtpExpiry(null); // Clear expiry
+            userRepository.save(user);
+
+            System.out.println("Password reset successful for user: " + user.getUsername());
+
+            return ResponseEntity.ok().body(java.util.Map.of(
+                "success", true,
+                "message", "Password reset successful. You can now login with your new password."
+            ));
+
+        } catch (Exception e) {
+            System.err.println("Reset password error: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(java.util.Map.of(
+                "success", false,
+                "message", "An error occurred. Please try again later."
+            ));
+        }
+    }
+
+    /**
+     * Generate a 6-digit OTP
+     */
+    private String generateOTP() {
+        SecureRandom random = new SecureRandom();
+        int otp = 100000 + random.nextInt(900000); // 6-digit OTP
+        return String.valueOf(otp);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
