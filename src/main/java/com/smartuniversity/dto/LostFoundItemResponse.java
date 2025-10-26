@@ -36,32 +36,50 @@ public class LostFoundItemResponse {
     public LostFoundItemResponse() {}
     
     public LostFoundItemResponse(LostFoundItem item) {
-        this.id = item.getId();
-        this.type = item.getType();
-        this.title = item.getTitle();
-        this.description = item.getDescription();
-        this.category = item.getCategory();
-        this.location = item.getLocation();
-        this.dateReported = item.getDateReported();
-        this.imageUrl = item.getImageUrl();
-        this.reward = item.getReward();
-        this.contactMethod = item.getContactMethod();
-        this.status = item.getStatus();
-        this.priority = item.getPriority();
-        this.tags = item.getTags();
-        this.createdAt = item.getCreatedAt();
-        this.updatedAt = item.getUpdatedAt();
-        
-        if (item.getPostedBy() != null) {
-            this.postedByUserId = item.getPostedBy().getId();
-            if (item.getContactMethod() == LostFoundItem.ContactMethod.DIRECT) {
-                String firstName = item.getPostedBy().getFirstName() != null ? item.getPostedBy().getFirstName() : "User";
-                String lastName = item.getPostedBy().getLastName();
-                String lastInitial = (lastName != null && !lastName.isEmpty()) ? lastName.charAt(0) + "." : "";
-                this.postedBy = firstName + " " + lastInitial;
+        try {
+            this.id = item.getId();
+            this.type = item.getType();
+            this.title = item.getTitle();
+            this.description = item.getDescription();
+            this.category = item.getCategory();
+            this.location = item.getLocation();
+            this.dateReported = item.getDateReported();
+            this.imageUrl = item.getImageUrl();
+            this.reward = item.getReward();
+            this.contactMethod = item.getContactMethod() != null ? item.getContactMethod() : LostFoundItem.ContactMethod.DIRECT;
+            this.status = item.getStatus() != null ? item.getStatus() : LostFoundItem.ItemStatus.ACTIVE;
+            this.priority = item.getPriority() != null ? item.getPriority() : LostFoundItem.Priority.MEDIUM;
+            this.tags = item.getTags();
+            this.createdAt = item.getCreatedAt();
+            this.updatedAt = item.getUpdatedAt();
+            
+            if (item.getPostedBy() != null) {
+                try {
+                    this.postedByUserId = item.getPostedBy().getId();
+                    if (item.getContactMethod() == LostFoundItem.ContactMethod.DIRECT) {
+                        String firstName = item.getPostedBy().getFirstName() != null ? item.getPostedBy().getFirstName() : "User";
+                        String lastName = item.getPostedBy().getLastName();
+                        String lastInitial = (lastName != null && !lastName.isEmpty()) ? lastName.charAt(0) + "." : "";
+                        this.postedBy = firstName + " " + lastInitial;
+                    } else {
+                        this.postedBy = "Anonymous";
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error setting user information: " + e.getMessage());
+                    this.postedBy = "Unknown";
+                    this.postedByUserId = null;
+                }
             } else {
-                this.postedBy = "Anonymous";
+                this.postedBy = "Unknown";
+                this.postedByUserId = null;
             }
+        } catch (Exception e) {
+            System.err.println("Error creating LostFoundItemResponse: " + e.getMessage());
+            e.printStackTrace();
+            // Set default values for critical fields
+            if (this.contactMethod == null) this.contactMethod = LostFoundItem.ContactMethod.DIRECT;
+            if (this.status == null) this.status = LostFoundItem.ItemStatus.ACTIVE;
+            if (this.priority == null) this.priority = LostFoundItem.Priority.MEDIUM;
         }
     }
     

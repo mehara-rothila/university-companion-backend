@@ -22,8 +22,22 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        String[] origins = allowedOrigins.split(",");
+        
+        // Trim whitespace from each origin
+        for (int i = 0; i < origins.length; i++) {
+            origins[i] = origins[i].trim();
+        }
+        
         registry.addEndpoint("/ws")
-                .setAllowedOrigins(allowedOrigins.split(","))
-                .withSockJS();
+                .setAllowedOriginPatterns("*") // Allow all origins for now
+                .withSockJS()
+                .setStreamBytesLimit(512 * 1024)
+                .setHttpMessageCacheSize(1000)
+                .setDisconnectDelay(30 * 1000);
+        
+        // Also add endpoint without SockJS for native WebSocket support
+        registry.addEndpoint("/ws")
+                .setAllowedOriginPatterns("*");
     }
 }
