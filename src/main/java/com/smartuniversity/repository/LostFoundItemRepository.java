@@ -13,6 +13,9 @@ import java.util.List;
 @Repository
 public interface LostFoundItemRepository extends JpaRepository<LostFoundItem, Long> {
     
+    @Query("SELECT DISTINCT i FROM LostFoundItem i LEFT JOIN FETCH i.postedBy ORDER BY i.createdAt DESC")
+    List<LostFoundItem> findAllWithUsers();
+    
     List<LostFoundItem> findByType(LostFoundItem.ItemType type);
     
     List<LostFoundItem> findByStatus(LostFoundItem.ItemStatus status);
