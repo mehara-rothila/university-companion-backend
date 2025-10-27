@@ -54,7 +54,9 @@ public class SecurityConfig {
         
         // Parse allowed origins from application.properties
         List<String> origins = Arrays.asList(allowedOrigins.split(","));
-        configuration.setAllowedOrigins(origins);
+        
+        // Use allowedOriginPatterns to support wildcards like *.netlify.app
+        configuration.setAllowedOriginPatterns(origins);
         
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
