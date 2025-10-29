@@ -32,6 +32,22 @@ public class LostFoundController {
     @Autowired
     private AuthUtils authUtils;
     
+    // DEVELOPMENT ONLY: Clear all lost and found items
+    @DeleteMapping("/items/clear-all")
+    public ResponseEntity<?> clearAllItems() {
+        try {
+            long count = lostFoundItemRepository.count();
+            lostFoundItemRepository.deleteAll();
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "All lost and found items cleared successfully");
+            response.put("itemsDeleted", count);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body("Error clearing items: " + e.getMessage());
+        }
+    }
+    
     @GetMapping("/items")
     public ResponseEntity<List<LostFoundItemResponse>> getAllItems(
             @RequestParam(required = false) String type,
