@@ -6,6 +6,8 @@ public class ChatbotResponse {
     private String response;
     private String error;
     private Integer tokensUsed;
+    private Integer inputTokens;
+    private Integer outputTokens;
     private String intent;
 
     // Constructors
@@ -65,5 +67,21 @@ public class ChatbotResponse {
 
     public void setIntent(String intent) {
         this.intent = intent;
+    }
+
+    public Integer getInputTokens() {
+        return inputTokens;
+    }
+
+    public void setInputTokens(Integer inputTokens) {
+        this.inputTokens = inputTokens;
+    }
+
+    public Integer getOutputTokens() {
+        return outputTokens;
+    }
+
+    public void setOutputTokens(Integer outputTokens) {
+        this.outputTokens = outputTokens;
     }
 }
