@@ -4,9 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartuniversity.dto.ChatbotRequest;
 import com.smartuniversity.dto.ChatbotResponse;
+import com.smartuniversity.model.TokenTransaction;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -37,11 +39,16 @@ public class GeneralChatbotService {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final S3Service s3Service;
     private final Map<Long, List<Long>> rateLimitMap = new ConcurrentHashMap<>();
 
-    public GeneralChatbotService(RestTemplate restTemplate, ObjectMapper objectMapper) {
+    @Autowired
+    private TokenService tokenService;
+
+    public GeneralChatbotService(RestTemplate restTemplate, ObjectMapper objectMapper, S3Service s3Service) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
+        this.s3Service = s3Service;
     }
 
     /**
@@ -53,6 +60,14 @@ public class GeneralChatbotService {
             return ChatbotResponse.error("Rate limit exceeded. Maximum " + MAX_REQUESTS_PER_HOUR + " requests per hour allowed.");
         }
 
+        // Check token availability (estimate ~500 tokens for a typical message)
+        if (request.getUserId() != null && tokenService != null) {
+            Long estimatedTokens = 500L;
+            if (!tokenService.hasEnoughTokens(request.getUserId(), estimatedTokens)) {
+                return ChatbotResponse.error("Insufficient tokens. You have reached your daily limit of 500,000 tokens. Please try again tomorrow.");
+            }
+        }
+
         try {
             // Build the prompt with context
             String systemPrompt = buildSystemPrompt();
@@ -60,6 +75,7 @@ public class GeneralChatbotService {
 
             // Process attachments if any
             List<Map<String, Object>> parts = new ArrayList<>();
+            List<String> fileErrors = new ArrayList<>();
 
             // Add text part
             Map<String, Object> textPart = new HashMap<>();
@@ -75,7 +91,9 @@ public class GeneralChatbotService {
                             parts.add(imagePart);
                         }
                     } catch (Exception e) {
-                        System.err.println("Error processing image: " + e.getMessage());
+                        String errorMsg = "Failed to process image: " + getFileName(imageUrl);
+                        System.err.println(errorMsg + " - " + e.getMessage());
+                        fileErrors.add(errorMsg);
                     }
                 }
             }
@@ -87,20 +105,41 @@ public class GeneralChatbotService {
                         String pdfText = extractTextFromPdf(pdfUrl);
                         if (pdfText != null && !pdfText.trim().isEmpty()) {
                             Map<String, Object> pdfPart = new HashMap<>();
-                            pdfPart.put("text", "\n\nPDF Content:\n" + pdfText);
+                            pdfPart.put("text", "\n\n--- PDF Content ---\n" + pdfText + "\n--- End of PDF ---\n");
                             parts.add(pdfPart);
                         }
                     } catch (Exception e) {
-                        System.err.println("Error processing PDF: " + e.getMessage());
+                        String errorMsg = "Failed to process PDF: " + getFileName(pdfUrl);
+                        System.err.println(errorMsg + " - " + e.getMessage());
+                        fileErrors.add(errorMsg);
                     }
                 }
+            }
+
+            // If all files failed to process, return error
+            if (parts.size() == 1 && !fileErrors.isEmpty()) {
+                return ChatbotResponse.error("Unable to process uploaded files: " + String.join(", ", fileErrors));
             }
 
             // Call Gemini API with multimodal content
             String response = callGeminiAPI(systemPrompt, parts);
 
+            // Add file processing warnings if any files failed
+            if (!fileErrors.isEmpty()) {
+                response = "⚠️ Note: Some files could not be processed:\n" +
+                          String.join("\n", fileErrors) + "\n\n" + response;
+            }
+
             // Record request for rate limiting
             recordRequest(request.getUserId());
+
+            // Consume tokens
+            if (request.getUserId() != null && tokenService != null) {
+                // Estimate tokens: 100 for user input + 300 for API response = 400 tokens
+                tokenService.consumeTokens(request.getUserId(), 400L, TokenTransaction.TransactionType.CHAT,
+                    "Chat message processed with " + (request.getImageUrls() != null ? request.getImageUrls().size() : 0) +
+                    " images and " + (request.getPdfUrls() != null ? request.getPdfUrls().size() : 0) + " PDFs");
+            }
 
             return ChatbotResponse.success(response);
 
@@ -112,12 +151,27 @@ public class GeneralChatbotService {
 
     /**
      * Extract text from PDF URL using PDFBox 3.x API
+     * Uses S3Service for secure file access
      */
     private String extractTextFromPdf(String pdfUrl) throws Exception {
-        URL url = new URL(pdfUrl);
-        try (InputStream inputStream = url.openStream();
-             PDDocument document = Loader.loadPDF(inputStream.readAllBytes())) {
+        byte[] pdfBytes;
 
+        // Check if URL is from our S3 bucket
+        String s3Key = s3Service.extractFileNameFromUrl(pdfUrl);
+
+        if (s3Key != null) {
+            // Download from S3 using credentials
+            pdfBytes = s3Service.getFileBytes(s3Key);
+        } else {
+            // Fallback to direct URL download for external URLs
+            URL url = new URL(pdfUrl);
+            try (InputStream inputStream = url.openStream()) {
+                pdfBytes = inputStream.readAllBytes();
+            }
+        }
+
+        // Load and extract text from PDF
+        try (PDDocument document = Loader.loadPDF(pdfBytes)) {
             PDFTextStripper stripper = new PDFTextStripper();
             String text = stripper.getText(document);
 
@@ -132,22 +186,35 @@ public class GeneralChatbotService {
 
     /**
      * Process image URL into Gemini-compatible format
+     * Uses S3Service for secure file access
      */
     private Map<String, Object> processImage(String imageUrl) throws Exception {
-        // Download image from URL
-        URL url = new URL(imageUrl);
-        BufferedImage image = ImageIO.read(url);
+        byte[] imageBytes;
 
-        if (image == null) {
-            throw new Exception("Failed to read image from URL");
+        // Check if URL is from our S3 bucket
+        String s3Key = s3Service.extractFileNameFromUrl(imageUrl);
+
+        if (s3Key != null) {
+            // Download from S3 using credentials
+            imageBytes = s3Service.getFileBytes(s3Key);
+        } else {
+            // Fallback to direct URL download for external URLs
+            URL url = new URL(imageUrl);
+            BufferedImage image = ImageIO.read(url);
+            if (image == null) {
+                throw new Exception("Failed to read image from URL");
+            }
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            String format = getImageFormat(imageUrl);
+            ImageIO.write(image, format, baos);
+            imageBytes = baos.toByteArray();
         }
 
         // Convert to base64
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        String format = getImageFormat(imageUrl);
-        ImageIO.write(image, format, baos);
-        byte[] imageBytes = baos.toByteArray();
         String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+
+        // Detect format from URL
+        String format = getImageFormat(imageUrl);
 
         // Create inline data part for Gemini
         Map<String, Object> imagePart = new HashMap<>();
@@ -298,5 +365,23 @@ Remember: You represent University of Moratuwa and should embody the values of a
         List<Long> requests = rateLimitMap.getOrDefault(userId, new ArrayList<>());
         requests.add(currentTime);
         rateLimitMap.put(userId, requests);
+    }
+
+    /**
+     * Extract filename from URL for display purposes
+     */
+    private String getFileName(String url) {
+        if (url == null || url.isEmpty()) {
+            return "unknown";
+        }
+        try {
+            // Remove query parameters if any
+            String cleanUrl = url.split("\\?")[0];
+            // Get last part after final slash
+            String[] parts = cleanUrl.split("/");
+            return parts[parts.length - 1];
+        } catch (Exception e) {
+            return "unknown";
+        }
     }
 }
