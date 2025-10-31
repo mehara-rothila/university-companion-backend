@@ -121,27 +121,41 @@ public class GeneralChatbotService {
                 return ChatbotResponse.error("Unable to process uploaded files: " + String.join(", ", fileErrors));
             }
 
-            // Call Gemini API with multimodal content
-            String response = callGeminiAPI(systemPrompt, parts);
+            // Call Gemini API with multimodal content and extract real token counts
+            GeminiResponse geminiResponse = callGeminiAPI(systemPrompt, parts);
 
             // Add file processing warnings if any files failed
+            String finalResponse = geminiResponse.text;
             if (!fileErrors.isEmpty()) {
-                response = "⚠️ Note: Some files could not be processed:\n" +
-                          String.join("\n", fileErrors) + "\n\n" + response;
+                finalResponse = "⚠️ Note: Some files could not be processed:\n" +
+                          String.join("\n", fileErrors) + "\n\n" + finalResponse;
             }
 
             // Record request for rate limiting
             recordRequest(request.getUserId());
 
-            // Consume tokens
+            // Consume tokens using REAL token counts from Gemini API
             if (request.getUserId() != null && tokenService != null) {
-                // Estimate tokens: 100 for user input + 300 for API response = 400 tokens
-                tokenService.consumeTokens(request.getUserId(), 400L, TokenTransaction.TransactionType.CHAT,
-                    "Chat message processed with " + (request.getImageUrls() != null ? request.getImageUrls().size() : 0) +
+                Integer inputTokens = geminiResponse.inputTokens != null ? geminiResponse.inputTokens : 0;
+                Integer outputTokens = geminiResponse.outputTokens != null ? geminiResponse.outputTokens : 0;
+
+                tokenService.consumeTokensWithDetails(request.getUserId(), inputTokens, outputTokens,
+                    TokenTransaction.TransactionType.CHAT,
+                    "Chat message with " + (request.getImageUrls() != null ? request.getImageUrls().size() : 0) +
                     " images and " + (request.getPdfUrls() != null ? request.getPdfUrls().size() : 0) + " PDFs");
             }
 
-            return ChatbotResponse.success(response);
+            ChatbotResponse response = ChatbotResponse.success(finalResponse);
+            if (geminiResponse.inputTokens != null) {
+                response.setInputTokens(geminiResponse.inputTokens);
+            }
+            if (geminiResponse.outputTokens != null) {
+                response.setOutputTokens(geminiResponse.outputTokens);
+            }
+            if (geminiResponse.getTotalTokens() > 0) {
+                response.setTokensUsed(geminiResponse.getTotalTokens());
+            }
+            return response;
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -272,9 +286,9 @@ Remember: You represent University of Moratuwa and should embody the values of a
     }
 
     /**
-     * Call Gemini API with multimodal content
+     * Call Gemini API with multimodal content and extract real token usage
      */
-    private String callGeminiAPI(String systemPrompt, List<Map<String, Object>> parts) throws Exception {
+    private GeminiResponse callGeminiAPI(String systemPrompt, List<Map<String, Object>> parts) throws Exception {
         String url = GEMINI_API_URL + "?key=" + apiKey;
 
         // Build request body
@@ -317,6 +331,22 @@ Remember: You represent University of Moratuwa and should embody the values of a
         JsonNode jsonResponse = objectMapper.readTree(response);
         JsonNode candidates = jsonResponse.get("candidates");
 
+        // Extract real token counts from usageMetadata
+        Integer inputTokens = null;
+        Integer outputTokens = null;
+        JsonNode usageMetadata = jsonResponse.get("usageMetadata");
+        if (usageMetadata != null) {
+            JsonNode promptTokenCount = usageMetadata.get("promptTokenCount");
+            JsonNode candidatesTokenCount = usageMetadata.get("candidatesTokenCount");
+
+            if (promptTokenCount != null) {
+                inputTokens = promptTokenCount.asInt();
+            }
+            if (candidatesTokenCount != null) {
+                outputTokens = candidatesTokenCount.asInt();
+            }
+        }
+
         if (candidates != null && candidates.isArray() && candidates.size() > 0) {
             JsonNode firstCandidate = candidates.get(0);
             JsonNode contentNode = firstCandidate.get("content");
@@ -326,7 +356,8 @@ Remember: You represent University of Moratuwa and should embody the values of a
                 if (partsNode != null && partsNode.isArray() && partsNode.size() > 0) {
                     JsonNode textNode = partsNode.get(0).get("text");
                     if (textNode != null) {
-                        return textNode.asText();
+                        String responseText = textNode.asText();
+                        return new GeminiResponse(responseText, inputTokens, outputTokens);
                     }
                 }
             }
@@ -382,6 +413,25 @@ Remember: You represent University of Moratuwa and should embody the values of a
             return parts[parts.length - 1];
         } catch (Exception e) {
             return "unknown";
+        }
+    }
+
+    /**
+     * Helper class to hold both API response text and token usage
+     */
+    private static class GeminiResponse {
+        public String text;
+        public Integer inputTokens;
+        public Integer outputTokens;
+
+        public GeminiResponse(String text, Integer inputTokens, Integer outputTokens) {
+            this.text = text;
+            this.inputTokens = inputTokens;
+            this.outputTokens = outputTokens;
+        }
+
+        public Integer getTotalTokens() {
+            return (inputTokens != null ? inputTokens : 0) + (outputTokens != null ? outputTokens : 0);
         }
     }
 }
