@@ -33,7 +33,7 @@ public class ImageUploadController {
             }
 
             // Validate folder name (security measure)
-            String[] allowedFolders = {"lost-found-images", "competition-images", "profile-images"};
+            String[] allowedFolders = {"lost-found-images", "competition-images", "profile-images", "event-images"};
             if (!java.util.Arrays.asList(allowedFolders).contains(folder)) {
                 folder = "lost-found-images"; // Default to lost-found if invalid folder
             }
