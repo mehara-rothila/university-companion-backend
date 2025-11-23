@@ -55,7 +55,7 @@ public class LostFoundItem {
     
     @NotNull
     @Enumerated(EnumType.STRING)
-    private ItemStatus status = ItemStatus.ACTIVE;
+    private ItemStatus status = ItemStatus.PENDING;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
@@ -82,7 +82,7 @@ public class LostFoundItem {
     }
     
     public enum ItemStatus {
-        ACTIVE, RESOLVED, EXPIRED
+        PENDING, ACTIVE, RESOLVED, EXPIRED, REJECTED
     }
     
     public enum Priority {
