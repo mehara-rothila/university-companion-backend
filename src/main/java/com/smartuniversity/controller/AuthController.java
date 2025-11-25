@@ -88,7 +88,15 @@ public class AuthController {
             return ResponseEntity.badRequest().body("Error: Invalid username/email or password!");
         }
 
-        System.out.println("User found: " + user.getUsername() + " (email: " + user.getEmail() + "), returning JWT response");
+        System.out.println("User found: " + user.getUsername() + " (email: " + user.getEmail() + ")");
+        
+        // VERIFY PASSWORD - This was missing before!
+        if (!encoder.matches(loginRequest.getPassword(), user.getPassword())) {
+            System.out.println("Invalid password for user: " + user.getUsername());
+            return ResponseEntity.badRequest().body("Error: Invalid username/email or password!");
+        }
+        
+        System.out.println("Password verified successfully for user: " + user.getUsername());
         
         // Generate real JWT token
         String jwt = jwtUtils.generateJwtToken(user.getUsername());
