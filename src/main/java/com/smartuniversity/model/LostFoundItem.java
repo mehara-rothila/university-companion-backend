@@ -55,7 +55,7 @@ public class LostFoundItem {
     
     @NotNull
     @Enumerated(EnumType.STRING)
-    private ItemStatus status = ItemStatus.PENDING;
+    private ItemStatus status = ItemStatus.ACTIVE;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
