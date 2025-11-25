@@ -151,6 +151,7 @@ public class LostFoundController {
         item.setReward(request.getReward());
         item.setContactMethod(request.getContactMethod());
         item.setPriority(request.getPriority());
+        item.setStatus(LostFoundItem.ItemStatus.PENDING); // Require admin approval
 
         if (request.getTags() != null) {
             item.setTags(request.getTags());
