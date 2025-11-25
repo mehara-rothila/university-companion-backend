@@ -207,35 +207,88 @@ public class AdminController {
      */
     @PostMapping("/users/bulk-action")
     public ResponseEntity<?> bulkUserAction(@RequestBody Map<String, Object> request) {
-        List<Integer> userIdsInt = (List<Integer>) request.get("userIds");
-        List<Long> userIds = userIdsInt.stream().map(Integer::longValue).toList();
-        String action = (String) request.get("action");
-        
-        if (userIds == null || userIds.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "User IDs are required"));
-        }
-        
         try {
+            Object userIdsObj = request.get("userIds");
+            String action = (String) request.get("action");
+            
+            if (userIdsObj == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "User IDs are required"));
+            }
+            
+            if (action == null || action.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Action is required"));
+            }
+            
+            // Handle the userIds - could be List<Integer> or List<Long> depending on JSON parsing
+            List<Long> userIds;
+            if (userIdsObj instanceof List<?>) {
+                List<?> rawList = (List<?>) userIdsObj;
+                userIds = rawList.stream()
+                    .map(id -> {
+                        if (id instanceof Integer) {
+                            return ((Integer) id).longValue();
+                        } else if (id instanceof Long) {
+                            return (Long) id;
+                        } else if (id instanceof Number) {
+                            return ((Number) id).longValue();
+                        }
+                        throw new IllegalArgumentException("Invalid user ID type: " + id.getClass());
+                    })
+                    .toList();
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("error", "User IDs must be an array"));
+            }
+            
+            if (userIds.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "User IDs list cannot be empty"));
+            }
+            
             List<User> users = userRepository.findAllById(userIds);
             
-            switch (action) {
+            switch (action.toLowerCase()) {
                 case "enable":
                     users.forEach(user -> user.setEnabled(true));
+                    userRepository.saveAll(users);
                     break;
                 case "disable":
                     users.forEach(user -> user.setEnabled(false));
+                    userRepository.saveAll(users);
                     break;
                 case "delete":
-                    userRepository.deleteAllById(userIds);
-                    return ResponseEntity.ok(Map.of("message", "Users deleted successfully"));
+                    // Delete users one by one to handle foreign key constraints gracefully
+                    int successCount = 0;
+                    java.util.List<String> failedUsers = new java.util.ArrayList<>();
+                    for (User user : users) {
+                        try {
+                            userRepository.delete(user);
+                            userRepository.flush(); // Force immediate execution to catch constraint errors
+                            successCount++;
+                        } catch (Exception ex) {
+                            failedUsers.add(user.getEmail() + " (has related data)");
+                        }
+                    }
+                    if (failedUsers.isEmpty()) {
+                        return ResponseEntity.ok(Map.of("message", "All users deleted successfully", "count", successCount));
+                    } else if (successCount > 0) {
+                        return ResponseEntity.ok(Map.of(
+                            "message", successCount + " users deleted, " + failedUsers.size() + " failed (have related records)",
+                            "count", successCount,
+                            "failed", failedUsers
+                        ));
+                    } else {
+                        return ResponseEntity.badRequest().body(Map.of(
+                            "error", "Could not delete users - they have related records (achievements, applications, etc.)",
+                            "failed", failedUsers
+                        ));
+                    }
                 default:
-                    return ResponseEntity.badRequest().body(Map.of("error", "Invalid action"));
+                    return ResponseEntity.badRequest().body(Map.of("error", "Invalid action: " + action + ". Valid actions are: enable, disable, delete"));
             }
             
-            userRepository.saveAll(users);
-            return ResponseEntity.ok(Map.of("message", "Bulk action completed successfully"));
+            return ResponseEntity.ok(Map.of("message", "Bulk " + action + " completed successfully", "count", users.size()));
             
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.badRequest().body(Map.of("error", "Failed to perform bulk action: " + e.getMessage()));
         }
     }
