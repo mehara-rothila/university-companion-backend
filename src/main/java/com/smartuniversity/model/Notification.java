@@ -53,7 +53,7 @@ public class Notification {
     private User createdBy;
 
     public enum NotificationType {
-        GENERAL, ACADEMIC, FINANCIAL_AID, LOST_FOUND, WELLNESS, DINING, LIBRARY, SOCIAL, SYSTEM
+        GENERAL, ACADEMIC, FINANCIAL_AID, LOST_FOUND, WELLNESS, DINING, LIBRARY, SOCIAL, SYSTEM, EMERGENCY
     }
 
     public enum NotificationPriority {
