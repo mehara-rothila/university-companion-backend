@@ -39,6 +39,10 @@ public class Book {
     @Column(nullable = false)
     private LendingType lendingType; // FREE, SELL, TRADE (for physical books)
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = true)
+    private BookStatus status; // PENDING, APPROVED, REJECTED - null treated as APPROVED for backward compatibility
+
     @Column
     private Integer price; // For selling books
 
@@ -114,6 +118,12 @@ public class Book {
         FREE,
         SELL,
         TRADE
+    }
+
+    public enum BookStatus {
+        PENDING,
+        APPROVED,
+        REJECTED
     }
 
     // Constructors
@@ -192,6 +202,14 @@ public class Book {
 
     public void setLendingType(LendingType lendingType) {
         this.lendingType = lendingType;
+    }
+
+    public BookStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(BookStatus status) {
+        this.status = status;
     }
 
     public Integer getPrice() {
