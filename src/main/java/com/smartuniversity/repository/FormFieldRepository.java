@@ -2,7 +2,9 @@ package com.smartuniversity.repository;
 
 import com.smartuniversity.model.FormField;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -13,5 +15,7 @@ public interface FormFieldRepository extends JpaRepository<FormField, Long> {
     List<FormField> findByCompetitionIdOrderByOrderAsc(Long competitionId);
 
     // Delete all form fields for a competition
+    @Modifying
+    @Transactional
     void deleteByCompetitionId(Long competitionId);
 }
