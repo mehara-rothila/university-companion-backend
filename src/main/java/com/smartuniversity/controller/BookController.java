@@ -30,17 +30,18 @@ public class BookController {
     // Health check endpoint - verify deployed version
     @GetMapping("/health")
     public ResponseEntity<String> health() {
-        return ResponseEntity.ok("Books API v2.0 - Error handling fixes applied - 2025-10-25");
+        return ResponseEntity.ok("Books API v3.0 - Admin approval system added - 2025-11-28");
     }
 
-    // Get all books
+    // Get all approved books (for regular users)
     @GetMapping
     public ResponseEntity<List<Book>> getAllBooks() {
         System.out.println("=== getAllBooks() called ===");
         try {
-            System.out.println("Attempting to fetch books from database...");
-            List<Book> books = bookRepository.findAll();
-            System.out.println("Successfully fetched " + books.size() + " books");
+            System.out.println("Attempting to fetch approved books from database...");
+            // Use query that includes null status for backward compatibility
+            List<Book> books = bookRepository.findApprovedOrNullStatusBooks();
+            System.out.println("Successfully fetched " + books.size() + " approved books");
             // Enrich each book with owner's rating
             books.forEach(book -> {
                 try {
@@ -61,6 +62,101 @@ public class BookController {
             e.printStackTrace();
             // Return empty list instead of error
             return ResponseEntity.ok(List.of());
+        }
+    }
+
+    // --- Admin Endpoints ---
+
+    // Get all books for admin (including pending and rejected)
+    @GetMapping("/admin/all")
+    public ResponseEntity<List<Book>> getAllBooksForAdmin() {
+        try {
+            List<Book> books = bookRepository.findAllByOrderByUploadDateDesc();
+            return ResponseEntity.ok(books);
+        } catch (Exception e) {
+            return ResponseEntity.ok(List.of());
+        }
+    }
+
+    // Get pending books for admin approval
+    @GetMapping("/admin/pending")
+    public ResponseEntity<List<Book>> getPendingBooks() {
+        try {
+            List<Book> books = bookRepository.findByStatusOrderByUploadDateDesc(Book.BookStatus.PENDING);
+            return ResponseEntity.ok(books);
+        } catch (Exception e) {
+            return ResponseEntity.ok(List.of());
+        }
+    }
+
+    // Get books by status for admin
+    @GetMapping("/admin/status/{status}")
+    public ResponseEntity<List<Book>> getBooksByStatus(@PathVariable String status) {
+        try {
+            Book.BookStatus bookStatus = Book.BookStatus.valueOf(status.toUpperCase());
+            List<Book> books;
+            // For APPROVED status, also include books with null status (backward compatibility)
+            if (bookStatus == Book.BookStatus.APPROVED) {
+                books = bookRepository.findApprovedOrNullStatusBooks();
+            } else {
+                books = bookRepository.findByStatusOrderByUploadDateDesc(bookStatus);
+            }
+            return ResponseEntity.ok(books);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // Approve book
+    @PutMapping("/admin/{id}/approve")
+    public ResponseEntity<?> approveBook(@PathVariable Long id) {
+        try {
+            Optional<Book> bookOptional = bookRepository.findById(id);
+            if (bookOptional.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            Book book = bookOptional.get();
+            book.setStatus(Book.BookStatus.APPROVED);
+            bookRepository.save(book);
+            return ResponseEntity.ok(book);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to approve book: " + e.getMessage());
+        }
+    }
+
+    // Reject book
+    @PutMapping("/admin/{id}/reject")
+    public ResponseEntity<?> rejectBook(@PathVariable Long id) {
+        try {
+            Optional<Book> bookOptional = bookRepository.findById(id);
+            if (bookOptional.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            Book book = bookOptional.get();
+            book.setStatus(Book.BookStatus.REJECTED);
+            bookRepository.save(book);
+            return ResponseEntity.ok(book);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to reject book: " + e.getMessage());
+        }
+    }
+
+    // Get book stats for admin
+    @GetMapping("/admin/stats")
+    public ResponseEntity<?> getBookStats() {
+        try {
+            Long pending = bookRepository.countPending();
+            Long approved = bookRepository.countApprovedOrNullStatus();
+            Long rejected = bookRepository.countRejected();
+            Long total = bookRepository.count();
+            return ResponseEntity.ok(java.util.Map.of(
+                "pending", pending,
+                "approved", approved,
+                "rejected", rejected,
+                "total", total
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to get stats: " + e.getMessage());
         }
     }
 
@@ -104,6 +200,10 @@ public class BookController {
             if (book.getAvailableForLending() == null) {
                 book.setAvailableForLending(true);
             }
+            // Set status to PENDING for admin approval
+            if (book.getStatus() == null) {
+                book.setStatus(Book.BookStatus.PENDING);
+            }
 
             Book savedBook = bookRepository.save(book);
             return ResponseEntity.ok(savedBook);
@@ -133,6 +233,17 @@ public class BookController {
         if (bookDetails.getPrice() != null) book.setPrice(bookDetails.getPrice());
         if (bookDetails.getAvailableForLending() != null) book.setAvailableForLending(bookDetails.getAvailableForLending());
         if (bookDetails.getPreferredPickupLocation() != null) book.setPreferredPickupLocation(bookDetails.getPreferredPickupLocation());
+        
+        // Update photo/PDF fields - always update these if they're in the request
+        // Use empty string check to allow clearing values
+        book.setPhotoUrl(bookDetails.getPhotoUrl());
+        book.setPdfUrl(bookDetails.getPdfUrl());
+        if (bookDetails.getFileSize() != null) book.setFileSize(bookDetails.getFileSize());
+
+        System.out.println("=== Updating book ID: " + id + " ===");
+        System.out.println("New photoUrl: " + bookDetails.getPhotoUrl());
+        System.out.println("New pdfUrl: " + bookDetails.getPdfUrl());
+        System.out.println("New fileSize: " + bookDetails.getFileSize());
 
         Book updatedBook = bookRepository.save(book);
         return ResponseEntity.ok(updatedBook);
