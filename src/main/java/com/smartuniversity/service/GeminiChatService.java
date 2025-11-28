@@ -25,7 +25,7 @@ public class GeminiChatService {
     @Value("${gemini.api.key}")
     private String apiKey;
 
-    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-002:generateContent";
     private static final int MAX_REQUESTS_PER_HOUR = 10;
     private static final long HOUR_IN_MILLIS = 60 * 60 * 1000;
 
@@ -93,7 +93,16 @@ public class GeminiChatService {
     private String buildSystemPrompt(String userMessage, WeatherResponse weatherData) {
         StringBuilder prompt = new StringBuilder();
         prompt.append("You are a helpful weather assistant for the University of Moratuwa campus.\n\n");
-        prompt.append("Current Weather Data:\n");
+
+        prompt.append("CRITICAL RULES:\n");
+        prompt.append("1. You do NOT have access to historical/past weather data.\n");
+        prompt.append("2. If asked about yesterday, last week, previous days, or any PAST weather, you MUST respond: ");
+        prompt.append("\"I'm sorry, I don't have access to historical weather data. I can only provide current conditions and forecasts for the upcoming days. Would you like to know about today's weather or the forecast instead?\"\n");
+        prompt.append("3. For questions about tomorrow or future days, use the FORECAST DATA below.\n");
+        prompt.append("4. Do NOT show current weather when asked about tomorrow - use tomorrow's forecast data.\n\n");
+
+        prompt.append("=== WEATHER DATA FOR UNIVERSITY OF MORATUWA ===\n\n");
+        prompt.append("CURRENT CONDITIONS (RIGHT NOW):\n");
 
         if (weatherData != null && weatherData.getCurrent() != null) {
             WeatherResponse.CurrentWeather current = weatherData.getCurrent();
@@ -104,21 +113,38 @@ public class GeminiChatService {
             prompt.append("- Feels Like: ").append(current.getFeelsLike()).append("°C\n");
 
             if (weatherData.getDaily() != null && !weatherData.getDaily().isEmpty()) {
-                prompt.append("\nForecast:\n");
-                weatherData.getDaily().stream().limit(3).forEach(day -> {
-                    prompt.append("- ").append(day.getDay()).append(": ")
+                prompt.append("\nFORECAST DATA (FUTURE DAYS):\n");
+                List<WeatherResponse.DailyForecast> dailyList = weatherData.getDaily();
+                for (int i = 0; i < dailyList.size(); i++) {
+                    WeatherResponse.DailyForecast day = dailyList.get(i);
+                    String dayLabel = day.getDay();
+                    // Add explicit labels for tomorrow and day after
+                    if (i == 0) {
+                        dayLabel = "TODAY (" + day.getDay() + ")";
+                    } else if (i == 1) {
+                        dayLabel = "TOMORROW (" + day.getDay() + ")";
+                    } else if (i == 2) {
+                        dayLabel = "DAY AFTER TOMORROW (" + day.getDay() + ")";
+                    }
+                    prompt.append("- ").append(dayLabel).append(": ")
                            .append(day.getCondition())
                            .append(", High: ").append(day.getHigh()).append("°C")
                            .append(", Low: ").append(day.getLow()).append("°C")
-                           .append(", Rain: ").append(day.getPrecipitation()).append("%\n");
-                });
+                           .append(", Rain chance: ").append(day.getPrecipitation()).append("%\n");
+                }
             }
         }
 
-        prompt.append("\nUser Question: ").append(userMessage).append("\n\n");
-        prompt.append("Please provide a helpful, concise response about the weather at University of Moratuwa. ");
-        prompt.append("Include practical advice for students (e.g., bring an umbrella, stay hydrated, etc.) when relevant. ");
-        prompt.append("Keep responses under 150 words.");
+        prompt.append("\n=== USER QUESTION ===\n");
+        prompt.append(userMessage).append("\n\n");
+        
+        prompt.append("=== RESPONSE INSTRUCTIONS ===\n");
+        prompt.append("- If question is about YESTERDAY or any PAST day: Apologize and explain you only have current and future data\n");
+        prompt.append("- If question is about TOMORROW: Use the TOMORROW forecast data above, NOT current conditions\n");
+        prompt.append("- If question is about TODAY or current weather: Use CURRENT CONDITIONS\n");
+        prompt.append("- Include practical advice (umbrella, sunscreen, etc.) when relevant\n");
+        prompt.append("- Use weather emojis to make responses friendly\n");
+        prompt.append("- Keep responses concise (under 150 words)\n");
 
         return prompt.toString();
     }
