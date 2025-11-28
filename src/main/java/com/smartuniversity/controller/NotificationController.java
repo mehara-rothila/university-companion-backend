@@ -215,8 +215,8 @@ public class NotificationController {
     @GetMapping("/student/types")
     public ResponseEntity<List<String>> getNotificationTypes() {
         List<String> types = List.of(
-            "GENERAL", "ACADEMIC", "FINANCIAL_AID", "LOST_FOUND", 
-            "WELLNESS", "DINING", "LIBRARY", "SOCIAL", "SYSTEM"
+            "GENERAL", "ACADEMIC", "FINANCIAL_AID", "LOST_FOUND",
+            "WELLNESS", "DINING", "LIBRARY", "SOCIAL", "SYSTEM", "EMERGENCY"
         );
         return ResponseEntity.ok(types);
     }
