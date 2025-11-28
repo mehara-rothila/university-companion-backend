@@ -60,6 +60,14 @@ A comprehensive Spring Boot REST API backend for the Smart University Companion 
 - **Role-based Access** - Admin and user role management
 - **User Status Control** - Enable/disable user accounts
 
+### 🏆 Student Achievement System (Production Ready)
+- **Achievement Submission** - Students submit achievements with images
+- **Admin Approval Workflow** - Review, approve, or reject submissions
+- **Social Feed** - Display approved achievements in social feed
+- **Engagement Features** - Like, comment, and share achievements
+- **Profile Integration** - Link achievements to student profiles
+- **Category Management** - Organize by competition, academic, sports, etc.
+
 ### 🗄️ Database Integration
 - **PostgreSQL Database** - Production-ready relational database
 - **JPA/Hibernate ORM** - Object-relational mapping
@@ -481,6 +489,63 @@ SUBSCRIBE /topic/notifications/{userId}
 SEND /app/notifications
 ```
 
+### 🏆 Achievement Endpoints
+
+#### Get Approved Achievements
+```http
+GET /api/achievements/approved
+Response: List of approved achievements for social feed
+```
+
+#### Get Pending Achievements (Admin)
+```http
+GET /api/achievements/pending/{adminId}
+Authorization: Bearer {jwt_token}
+```
+
+#### Get Student's Achievements
+```http
+GET /api/achievements/student/{studentId}
+Authorization: Bearer {jwt_token}
+```
+
+#### Submit Achievement
+```http
+POST /api/achievements
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+{
+  "studentId": 1,
+  "title": "First Place in Hackathon",
+  "description": "Won national coding competition",
+  "category": "Competition",
+  "imageUrl": "https://s3-bucket/image.jpg",
+  "achievementDate": "2024-01-15T00:00:00"
+}
+```
+
+#### Approve Achievement (Admin)
+```http
+PUT /api/achievements/{id}/approve/{adminId}
+Authorization: Bearer {jwt_token}
+```
+
+#### Reject Achievement (Admin)
+```http
+PUT /api/achievements/{id}/reject/{adminId}
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+{
+  "reason": "Insufficient documentation"
+}
+```
+
+#### Like/Unlike Achievement
+```http
+POST /api/achievements/{id}/like
+DELETE /api/achievements/{id}/unlike
+```
+
 ### 👤 User Management Endpoints
 ```http
 GET /api/users/profile
@@ -672,6 +737,7 @@ src/
 │   │   ├── config/
 │   │   │   └── SecurityConfig.java        # Security & CORS configuration
 │   │   ├── controller/                    # REST API Controllers
+│   │   │   ├── AchievementController.java # Student achievement management
 │   │   │   ├── AdminController.java       # Admin user management
 │   │   │   ├── AuthController.java        # Authentication endpoints
 │   │   │   ├── FinancialAidController.java          # Financial aid applications
@@ -689,20 +755,25 @@ src/
 │   │   │   ├── LostFoundItemResponse.java # Item response format
 │   │   │   └── SignupRequest.java        # Registration request
 │   │   ├── model/                        # JPA Entity Models
+│   │   │   ├── AchievementComment.java   # Achievement comment entity
 │   │   │   ├── FinancialAid.java         # Financial aid application entity
 │   │   │   ├── FinancialAidDonation.java # Donation entity
 │   │   │   ├── LostFoundItem.java        # Lost & Found item entity
 │   │   │   ├── Notification.java         # Notification entity
+│   │   │   ├── StudentAchievement.java   # Student achievement entity
 │   │   │   └── User.java                 # User entity
 │   │   ├── repository/                   # Data Access Layer
+│   │   │   ├── AchievementCommentRepository.java    # Achievement comment data access
 │   │   │   ├── FinancialAidRepository.java      # Financial aid data access
 │   │   │   ├── FinancialAidDonationRepository.java # Donation data access
 │   │   │   ├── LostFoundItemRepository.java # Lost & Found data access
 │   │   │   ├── NotificationRepository.java  # Notification data access
+│   │   │   ├── StudentAchievementRepository.java # Student achievement data access
 │   │   │   └── UserRepository.java          # User data access
 │   │   ├── security/                     # Security Components
 │   │   │   └── JwtUtils.java            # JWT token utilities
 │   │   └── service/                      # Business Logic Layer
+│   │       ├── AchievementService.java  # Achievement business logic
 │   │       ├── S3Service.java           # AWS S3 operations
 │   │       ├── UserDetailsServiceImpl.java # Spring Security user service
 │   │       └── UserPrincipal.java       # User security principal
@@ -716,6 +787,7 @@ src/
 ### 📋 Key Components Explanation
 
 #### Controllers (REST API Layer)
+- **AchievementController**: Student achievement submission and management
 - **AdminController**: Admin user management, dashboard statistics
 - **AuthController**: JWT authentication, login/register endpoints
 - **FinancialAidController**: User financial aid applications
@@ -729,12 +801,15 @@ src/
 
 #### Models (Data Layer)
 - **User**: User entity with authentication fields and roles
+- **StudentAchievement**: Student achievement with approval workflow
+- **AchievementComment**: Comments on achievements
 - **LostFoundItem**: Complete lost & found item with relationships
 - **FinancialAid**: Financial aid application with status tracking
 - **FinancialAidDonation**: Community donation records
 - **Notification**: User notifications with priority and type
 
 #### Services (Business Logic)
+- **AchievementService**: Achievement workflow and social features
 - **S3Service**: AWS S3 integration for image management
 - **UserDetailsServiceImpl**: Spring Security user authentication
 
