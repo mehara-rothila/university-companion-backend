@@ -26,6 +26,9 @@ public interface CompetitionRepository extends JpaRepository<Competition, Long> 
     // Find pending competitions (for admin)
     List<Competition> findByStatusOrderByCreatedAtAsc(ApprovalStatus status);
 
+    // Find all competitions ordered by created date (for admin)
+    List<Competition> findAllByOrderByCreatedAtDesc();
+
     // Find approved competitions by category
     List<Competition> findByStatusAndCategoryOrderByStartDateAsc(ApprovalStatus status, String category);
 }
