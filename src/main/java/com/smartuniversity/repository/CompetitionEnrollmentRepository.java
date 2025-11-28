@@ -3,7 +3,9 @@ package com.smartuniversity.repository;
 import com.smartuniversity.model.CompetitionEnrollment;
 import com.smartuniversity.model.CompetitionEnrollment.EnrollmentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,4 +27,9 @@ public interface CompetitionEnrollmentRepository extends JpaRepository<Competiti
 
     // Check if user is enrolled in a competition
     boolean existsByCompetitionIdAndUserIdAndStatus(Long competitionId, Long userId, EnrollmentStatus status);
+
+    // Delete all enrollments for a competition
+    @Modifying
+    @Transactional
+    void deleteByCompetitionId(Long competitionId);
 }
