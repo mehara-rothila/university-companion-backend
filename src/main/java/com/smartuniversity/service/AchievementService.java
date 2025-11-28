@@ -238,11 +238,6 @@ public class AchievementService {
             throw new RuntimeException("Unauthorized to update this achievement");
         }
 
-        // Only pending or rejected achievements can be updated
-        if (achievement.getStatus() == ApprovalStatus.APPROVED) {
-            throw new RuntimeException("Approved achievements cannot be modified");
-        }
-
         // Update fields
         if (updatedData.getTitle() != null) {
             achievement.setTitle(updatedData.getTitle());
@@ -260,8 +255,12 @@ public class AchievementService {
             achievement.setAchievementDate(updatedData.getAchievementDate());
         }
 
-        // Reset to pending if it was rejected
-        if (achievement.getStatus() == ApprovalStatus.REJECTED) {
+        // Reset to pending if it was approved or rejected (requires re-approval after edit)
+        if (achievement.getStatus() == ApprovalStatus.APPROVED) {
+            achievement.setStatus(ApprovalStatus.PENDING);
+            achievement.setApprovedAt(null);
+            achievement.setApprovedBy(null);
+        } else if (achievement.getStatus() == ApprovalStatus.REJECTED) {
             achievement.setStatus(ApprovalStatus.PENDING);
             achievement.setRejectedAt(null);
             achievement.setRejectedBy(null);
