@@ -49,6 +49,18 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     Long countActiveNotificationsForUser(@Param("userId") Long userId, @Param("now") LocalDateTime now);
     
     List<Notification> findByTypeAndIsActiveTrue(Notification.NotificationType type);
-    
+
     List<Notification> findByPriorityAndIsActiveTrue(Notification.NotificationPriority priority);
+
+    @Query("SELECT n FROM Notification n WHERE n.isActive = true AND n.type = 'EMERGENCY' AND " +
+           "(n.expiresAt IS NULL OR n.expiresAt > :now) " +
+           "ORDER BY n.createdAt DESC")
+    List<Notification> findActiveEmergencies(@Param("now") LocalDateTime now);
+
+    @Query("SELECT n FROM Notification n WHERE n.isActive = true AND n.type = 'EMERGENCY' AND " +
+           "(n.expiresAt IS NULL OR n.expiresAt > :now) AND " +
+           "(n.target = 'ALL_STUDENTS' OR " +
+           "(n.target = 'SPECIFIC_USERS' AND :userId MEMBER OF n.targetUserIds)) " +
+           "ORDER BY n.createdAt DESC")
+    List<Notification> findEmergenciesForUser(@Param("userId") Long userId, @Param("now") LocalDateTime now);
 }
