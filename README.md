@@ -42,6 +42,16 @@ A comprehensive Spring Boot REST API backend for the Smart University Companion 
 - **Bulk Operations** - Mark all as read, delete all read notifications
 - **User-specific Notifications** - Targeted notifications per user
 
+### 🚨 Emergency Notification System (Production Ready)
+- **Emergency Alerts** - Critical notifications for campus-wide emergencies
+- **Real-time Broadcasting** - WebSocket-based instant emergency alerts
+- **Acknowledgment Tracking** - Track which users have seen and acknowledged alerts
+- **Admin Dashboard** - Statistics on emergency notification reach and engagement
+- **Seen/Dismissed Tracking** - Separate tracking for views and dismissals
+- **Expiration Management** - Auto-expire emergency notifications
+- **Targeted Alerts** - Send to all students or specific user groups
+- **Browser Notifications** - Native browser notification support
+
 ### 👥 Admin Management System (Production Ready)
 - **User Management** - Complete CRUD operations for users
 - **Dashboard Statistics** - Real-time metrics and analytics
