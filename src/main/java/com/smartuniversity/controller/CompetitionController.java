@@ -500,6 +500,77 @@ public class CompetitionController {
         }
     }
 
+    // Admin: Get all competitions (all statuses)
+    @GetMapping("/admin/all")
+    public ResponseEntity<?> getAllCompetitions(@RequestParam Long adminId) {
+        try {
+            // Verify admin role
+            User admin = userRepository.findById(adminId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+            if (admin.getRole() != User.UserRole.ADMIN) {
+                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
+            }
+
+            List<Competition> competitions = competitionRepository.findAllByOrderByCreatedAtDesc();
+
+            List<Map<String, Object>> response = new ArrayList<>();
+            for (Competition comp : competitions) {
+                Map<String, Object> compData = buildCompetitionResponse(comp);
+
+                // Add organizer info
+                User organizer = userRepository.findById(comp.getOrganizerId()).orElse(null);
+                if (organizer != null) {
+                    compData.put("organizerName", organizer.getFirstName() + " " + organizer.getLastName());
+                    compData.put("organizerEmail", organizer.getEmail());
+                }
+
+                // Add enrollment count
+                long enrollmentCount = enrollmentRepository.countByCompetitionIdAndStatus(
+                    comp.getId(),
+                    EnrollmentStatus.ENROLLED
+                );
+                compData.put("enrollmentCount", enrollmentCount);
+
+                response.add(compData);
+            }
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // Admin: Delete competition permanently
+    @DeleteMapping("/{competitionId}")
+    public ResponseEntity<?> deleteCompetition(@PathVariable Long competitionId, @RequestParam Long adminId) {
+        try {
+            // Verify admin role
+            User admin = userRepository.findById(adminId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+            if (admin.getRole() != User.UserRole.ADMIN) {
+                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
+            }
+
+            Competition competition = competitionRepository.findById(competitionId)
+                .orElseThrow(() -> new RuntimeException("Competition not found"));
+
+            // Delete related enrollments first
+            enrollmentRepository.deleteByCompetitionId(competitionId);
+            
+            // Delete related form fields
+            formFieldRepository.deleteByCompetitionId(competitionId);
+
+            // Delete the competition
+            competitionRepository.delete(competition);
+
+            return ResponseEntity.ok(Map.of("message", "Competition deleted successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // Helper method to validate URL format
     private boolean isValidUrl(String url) {
         if (url == null || url.trim().isEmpty()) {
