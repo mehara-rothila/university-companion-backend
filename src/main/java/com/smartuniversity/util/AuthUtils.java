@@ -67,4 +67,43 @@ public class AuthUtils {
         System.out.println("No user found, returning null");
         return null;
     }
+
+    /**
+     * Extract admin user from JWT token in Authorization header
+     * Returns null if user is not found or not an admin
+     *
+     * @param authHeader Authorization header value (e.g., "Bearer jwt-token")
+     * @return User object if admin, null otherwise
+     */
+    public User getAdminFromAuthHeader(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return null;
+        }
+
+        try {
+            String jwt = authHeader.substring(7);
+            String username = jwtUtils.getUserNameFromJwtToken(jwt);
+
+            if (username != null) {
+                User user = userRepository.findByUsername(username).orElse(null);
+                if (user != null && user.getRole() == User.UserRole.ADMIN) {
+                    return user;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error extracting admin from JWT: " + e.getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if the user from auth header is an admin
+     *
+     * @param authHeader Authorization header value
+     * @return true if user is admin, false otherwise
+     */
+    public boolean isAdmin(String authHeader) {
+        return getAdminFromAuthHeader(authHeader) != null;
+    }
 }

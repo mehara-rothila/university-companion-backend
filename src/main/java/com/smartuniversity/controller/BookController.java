@@ -5,6 +5,7 @@ import com.smartuniversity.model.BookRequest;
 import com.smartuniversity.repository.BookRepository;
 import com.smartuniversity.repository.BookRequestRepository;
 import com.smartuniversity.repository.UserRatingRepository;
+import com.smartuniversity.util.AuthUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +27,9 @@ public class BookController {
 
     @Autowired
     private UserRatingRepository userRatingRepository;
+
+    @Autowired
+    private AuthUtils authUtils;
 
     // Health check endpoint - verify deployed version
     @GetMapping("/health")
@@ -69,7 +73,11 @@ public class BookController {
 
     // Get all books for admin (including pending and rejected)
     @GetMapping("/admin/all")
-    public ResponseEntity<List<Book>> getAllBooksForAdmin() {
+    public ResponseEntity<?> getAllBooksForAdmin(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (!authUtils.isAdmin(authHeader)) {
+            return ResponseEntity.status(403).body("Access denied. Admin privileges required.");
+        }
         try {
             List<Book> books = bookRepository.findAllByOrderByUploadDateDesc();
             return ResponseEntity.ok(books);
@@ -80,7 +88,11 @@ public class BookController {
 
     // Get pending books for admin approval
     @GetMapping("/admin/pending")
-    public ResponseEntity<List<Book>> getPendingBooks() {
+    public ResponseEntity<?> getPendingBooks(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (!authUtils.isAdmin(authHeader)) {
+            return ResponseEntity.status(403).body("Access denied. Admin privileges required.");
+        }
         try {
             List<Book> books = bookRepository.findByStatusOrderByUploadDateDesc(Book.BookStatus.PENDING);
             return ResponseEntity.ok(books);
@@ -91,7 +103,12 @@ public class BookController {
 
     // Get books by status for admin
     @GetMapping("/admin/status/{status}")
-    public ResponseEntity<List<Book>> getBooksByStatus(@PathVariable String status) {
+    public ResponseEntity<?> getBooksByStatus(
+            @PathVariable String status,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (!authUtils.isAdmin(authHeader)) {
+            return ResponseEntity.status(403).body("Access denied. Admin privileges required.");
+        }
         try {
             Book.BookStatus bookStatus = Book.BookStatus.valueOf(status.toUpperCase());
             List<Book> books;
@@ -109,7 +126,12 @@ public class BookController {
 
     // Approve book
     @PutMapping("/admin/{id}/approve")
-    public ResponseEntity<?> approveBook(@PathVariable Long id) {
+    public ResponseEntity<?> approveBook(
+            @PathVariable Long id,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (!authUtils.isAdmin(authHeader)) {
+            return ResponseEntity.status(403).body("Access denied. Admin privileges required.");
+        }
         try {
             Optional<Book> bookOptional = bookRepository.findById(id);
             if (bookOptional.isEmpty()) {
@@ -126,7 +148,12 @@ public class BookController {
 
     // Reject book
     @PutMapping("/admin/{id}/reject")
-    public ResponseEntity<?> rejectBook(@PathVariable Long id) {
+    public ResponseEntity<?> rejectBook(
+            @PathVariable Long id,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (!authUtils.isAdmin(authHeader)) {
+            return ResponseEntity.status(403).body("Access denied. Admin privileges required.");
+        }
         try {
             Optional<Book> bookOptional = bookRepository.findById(id);
             if (bookOptional.isEmpty()) {
@@ -143,7 +170,11 @@ public class BookController {
 
     // Get book stats for admin
     @GetMapping("/admin/stats")
-    public ResponseEntity<?> getBookStats() {
+    public ResponseEntity<?> getBookStats(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (!authUtils.isAdmin(authHeader)) {
+            return ResponseEntity.status(403).body("Access denied. Admin privileges required.");
+        }
         try {
             Long pending = bookRepository.countPending();
             Long approved = bookRepository.countApprovedOrNullStatus();
