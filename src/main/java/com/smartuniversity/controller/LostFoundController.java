@@ -32,22 +32,6 @@ public class LostFoundController {
     @Autowired
     private AuthUtils authUtils;
 
-    // DEVELOPMENT ONLY: Clear all lost and found items
-    @DeleteMapping("/items/clear-all")
-    public ResponseEntity<?> clearAllItems() {
-        try {
-            long count = lostFoundItemRepository.count();
-            lostFoundItemRepository.deleteAll();
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "All lost and found items cleared successfully");
-            response.put("itemsDeleted", count);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body("Error clearing items: " + e.getMessage());
-        }
-    }
-
     @GetMapping("/items")
     public ResponseEntity<List<LostFoundItemResponse>> getAllItems(
             @RequestParam(required = false) String type,
@@ -300,16 +284,11 @@ public class LostFoundController {
 
     // Admin endpoint to get pending items for review
     @GetMapping("/admin/pending")
-    public ResponseEntity<?> getPendingItems(@RequestParam Long adminId) {
+    public ResponseEntity<?> getPendingItems(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            Optional<User> adminOpt = userRepository.findById(adminId);
-            if (!adminOpt.isPresent()) {
-                return ResponseEntity.status(404).body("Admin user not found");
-            }
-
-            User admin = adminOpt.get();
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
                 return ResponseEntity.status(403).body("Access denied. Admin privileges required.");
             }
 
@@ -340,16 +319,12 @@ public class LostFoundController {
 
     // Admin endpoint to approve an item
     @PostMapping("/{itemId}/approve")
-    public ResponseEntity<?> approveItem(@PathVariable Long itemId, @RequestParam Long adminId) {
+    public ResponseEntity<?> approveItem(
+            @PathVariable Long itemId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            Optional<User> adminOpt = userRepository.findById(adminId);
-            if (!adminOpt.isPresent()) {
-                return ResponseEntity.status(404).body("Admin user not found");
-            }
-
-            User admin = adminOpt.get();
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
                 return ResponseEntity.status(403).body("Access denied. Admin privileges required.");
             }
 
@@ -380,16 +355,12 @@ public class LostFoundController {
 
     // Admin endpoint to reject an item
     @PostMapping("/{itemId}/reject")
-    public ResponseEntity<?> rejectItem(@PathVariable Long itemId, @RequestParam Long adminId) {
+    public ResponseEntity<?> rejectItem(
+            @PathVariable Long itemId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            Optional<User> adminOpt = userRepository.findById(adminId);
-            if (!adminOpt.isPresent()) {
-                return ResponseEntity.status(404).body("Admin user not found");
-            }
-
-            User admin = adminOpt.get();
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
                 return ResponseEntity.status(403).body("Access denied. Admin privileges required.");
             }
 
