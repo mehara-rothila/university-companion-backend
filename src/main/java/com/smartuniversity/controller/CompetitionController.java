@@ -11,6 +11,7 @@ import com.smartuniversity.repository.CompetitionRepository;
 import com.smartuniversity.repository.FormFieldRepository;
 import com.smartuniversity.repository.UserRepository;
 import com.smartuniversity.service.S3Service;
+import com.smartuniversity.util.AuthUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -38,6 +39,9 @@ public class CompetitionController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private AuthUtils authUtils;
 
     @Autowired
     private S3Service s3Service;
@@ -372,13 +376,11 @@ public class CompetitionController {
 
     // Admin: Get pending competitions
     @GetMapping("/admin/pending")
-    public ResponseEntity<?> getPendingCompetitions(@RequestParam Long adminId) {
+    public ResponseEntity<?> getPendingCompetitions(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
@@ -406,13 +408,13 @@ public class CompetitionController {
 
     // Admin: Approve competition
     @PostMapping("/{competitionId}/approve")
-    public ResponseEntity<?> approveCompetition(@PathVariable Long competitionId, @RequestParam Long adminId) {
+    public ResponseEntity<?> approveCompetition(
+            @PathVariable Long competitionId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            User admin = authUtils.getAdminFromAuthHeader(authHeader);
+            if (admin == null) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
@@ -426,7 +428,7 @@ public class CompetitionController {
 
             competition.setStatus(ApprovalStatus.APPROVED);
             competition.setApprovedAt(LocalDateTime.now());
-            competition.setApprovedBy(adminId);
+            competition.setApprovedBy(admin.getId());
             competitionRepository.save(competition);
 
             return ResponseEntity.ok(Map.of("message", "Competition approved successfully"));
@@ -437,13 +439,14 @@ public class CompetitionController {
 
     // Admin: Reject competition
     @PostMapping("/{competitionId}/reject")
-    public ResponseEntity<?> rejectCompetition(@PathVariable Long competitionId, @RequestParam Long adminId, @RequestBody Map<String, String> data) {
+    public ResponseEntity<?> rejectCompetition(
+            @PathVariable Long competitionId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody Map<String, String> data) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            User admin = authUtils.getAdminFromAuthHeader(authHeader);
+            if (admin == null) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
@@ -464,7 +467,7 @@ public class CompetitionController {
             competition.setStatus(ApprovalStatus.REJECTED);
             competition.setRejectionReason(reason);
             competition.setRejectedAt(LocalDateTime.now());
-            competition.setRejectedBy(adminId);
+            competition.setRejectedBy(admin.getId());
             competitionRepository.save(competition);
 
             return ResponseEntity.ok(Map.of("message", "Competition rejected"));
@@ -475,13 +478,12 @@ public class CompetitionController {
 
     // Admin: Hide/Delete competition (soft delete)
     @PostMapping("/{competitionId}/hide")
-    public ResponseEntity<?> hideCompetition(@PathVariable Long competitionId, @RequestParam Long adminId) {
+    public ResponseEntity<?> hideCompetition(
+            @PathVariable Long competitionId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
@@ -499,13 +501,12 @@ public class CompetitionController {
 
     // Admin: Unhide competition
     @PostMapping("/{competitionId}/unhide")
-    public ResponseEntity<?> unhideCompetition(@PathVariable Long competitionId, @RequestParam Long adminId) {
+    public ResponseEntity<?> unhideCompetition(
+            @PathVariable Long competitionId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
@@ -523,13 +524,11 @@ public class CompetitionController {
 
     // Admin: Get all competitions (all statuses)
     @GetMapping("/admin/all")
-    public ResponseEntity<?> getAllCompetitions(@RequestParam Long adminId) {
+    public ResponseEntity<?> getAllCompetitions(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
@@ -564,13 +563,12 @@ public class CompetitionController {
 
     // Admin: Delete competition permanently
     @DeleteMapping("/{competitionId}")
-    public ResponseEntity<?> deleteCompetition(@PathVariable Long competitionId, @RequestParam Long adminId) {
+    public ResponseEntity<?> deleteCompetition(
+            @PathVariable Long competitionId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
@@ -579,7 +577,7 @@ public class CompetitionController {
 
             // Delete related enrollments first
             enrollmentRepository.deleteByCompetitionId(competitionId);
-            
+
             // Delete related form fields
             formFieldRepository.deleteByCompetitionId(competitionId);
 
