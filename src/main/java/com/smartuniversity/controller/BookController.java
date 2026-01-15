@@ -249,6 +249,31 @@ public class BookController {
         return ResponseEntity.ok(updatedBook);
     }
 
+    // Update book image only
+    @PutMapping("/{id}/image")
+    public ResponseEntity<?> updateBookImage(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
+        try {
+            Optional<Book> bookOptional = bookRepository.findById(id);
+            if (bookOptional.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Book book = bookOptional.get();
+            String photoUrl = body.get("photoUrl");
+
+            if (photoUrl == null || photoUrl.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Photo URL is required");
+            }
+
+            book.setPhotoUrl(photoUrl);
+            bookRepository.save(book);
+
+            return ResponseEntity.ok(java.util.Map.of("message", "Book image updated successfully", "photoUrl", photoUrl));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to update book image: " + e.getMessage());
+        }
+    }
+
     // Delete book
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteBook(@PathVariable Long id) {
