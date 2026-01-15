@@ -10,6 +10,7 @@ import com.smartuniversity.repository.EventRepository;
 import com.smartuniversity.repository.EventRegistrationRepository;
 import com.smartuniversity.repository.EventCommentRepository;
 import com.smartuniversity.repository.UserRepository;
+import com.smartuniversity.util.AuthUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -33,6 +34,9 @@ public class EventController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private AuthUtils authUtils;
 
     // Create a new event
     @PostMapping
@@ -569,13 +573,12 @@ public class EventController {
 
     // Admin: Get pending events
     @GetMapping("/admin/pending")
-    public ResponseEntity<?> getPendingEvents(@RequestParam Long adminId) {
+    public ResponseEntity<?> getPendingEvents(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            User admin = authUtils.getAdminFromAuthHeader(authHeader);
+            if (admin == null) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
@@ -603,13 +606,13 @@ public class EventController {
 
     // Admin: Approve event
     @PostMapping("/{eventId}/approve")
-    public ResponseEntity<?> approveEvent(@PathVariable Long eventId, @RequestParam Long adminId) {
+    public ResponseEntity<?> approveEvent(
+            @PathVariable Long eventId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            User admin = authUtils.getAdminFromAuthHeader(authHeader);
+            if (admin == null) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
@@ -623,7 +626,7 @@ public class EventController {
 
             event.setStatus(ApprovalStatus.APPROVED);
             event.setApprovedAt(LocalDateTime.now());
-            event.setApprovedBy(adminId);
+            event.setApprovedBy(admin.getId());
             eventRepository.save(event);
 
             return ResponseEntity.ok(Map.of("message", "Event approved successfully"));
@@ -634,13 +637,14 @@ public class EventController {
 
     // Admin: Reject event
     @PostMapping("/{eventId}/reject")
-    public ResponseEntity<?> rejectEvent(@PathVariable Long eventId, @RequestParam Long adminId, @RequestBody Map<String, String> data) {
+    public ResponseEntity<?> rejectEvent(
+            @PathVariable Long eventId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody Map<String, String> data) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            User admin = authUtils.getAdminFromAuthHeader(authHeader);
+            if (admin == null) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
@@ -661,7 +665,7 @@ public class EventController {
             event.setStatus(ApprovalStatus.REJECTED);
             event.setRejectionReason(reason);
             event.setRejectedAt(LocalDateTime.now());
-            event.setRejectedBy(adminId);
+            event.setRejectedBy(admin.getId());
             eventRepository.save(event);
 
             return ResponseEntity.ok(Map.of("message", "Event rejected"));
@@ -672,13 +676,12 @@ public class EventController {
 
     // Admin: Hide/Delete event (soft delete)
     @PostMapping("/{eventId}/hide")
-    public ResponseEntity<?> hideEvent(@PathVariable Long eventId, @RequestParam Long adminId) {
+    public ResponseEntity<?> hideEvent(
+            @PathVariable Long eventId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
@@ -696,13 +699,12 @@ public class EventController {
 
     // Admin: Unhide event
     @PostMapping("/{eventId}/unhide")
-    public ResponseEntity<?> unhideEvent(@PathVariable Long eventId, @RequestParam Long adminId) {
+    public ResponseEntity<?> unhideEvent(
+            @PathVariable Long eventId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
