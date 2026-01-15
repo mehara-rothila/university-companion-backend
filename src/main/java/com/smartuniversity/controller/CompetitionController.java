@@ -151,6 +151,27 @@ public class CompetitionController {
         }
     }
 
+    // Admin: Update competition image only
+    @PutMapping("/{id}/image")
+    public ResponseEntity<?> updateCompetitionImage(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        try {
+            Competition competition = competitionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Competition not found"));
+
+            String imageUrl = body.get("imageUrl");
+            if (imageUrl == null || imageUrl.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Image URL is required"));
+            }
+
+            competition.setImageUrl(imageUrl);
+            competitionRepository.save(competition);
+
+            return ResponseEntity.ok(Map.of("message", "Competition image updated successfully", "imageUrl", imageUrl));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // Get competitions by organizer
     @GetMapping("/my-competitions/{organizerId}")
     public ResponseEntity<?> getMyCompetitions(@PathVariable Long organizerId) {

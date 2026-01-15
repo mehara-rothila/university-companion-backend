@@ -274,6 +274,27 @@ public class EventController {
         }
     }
 
+    // Admin: Update event image only
+    @PutMapping("/{id}/image")
+    public ResponseEntity<?> updateEventImage(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        try {
+            Event event = eventRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Event not found"));
+
+            String imageUrl = body.get("imageUrl");
+            if (imageUrl == null || imageUrl.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Image URL is required"));
+            }
+
+            event.setImageUrl(imageUrl);
+            eventRepository.save(event);
+
+            return ResponseEntity.ok(Map.of("message", "Event image updated successfully", "imageUrl", imageUrl));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // Delete event (only creator can delete, only if PENDING)
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteEvent(@PathVariable Long id, @RequestParam Long userId) {
