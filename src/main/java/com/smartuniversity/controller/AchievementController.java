@@ -3,8 +3,8 @@ package com.smartuniversity.controller;
 import com.smartuniversity.model.StudentAchievement;
 import com.smartuniversity.model.AchievementComment;
 import com.smartuniversity.model.User;
-import com.smartuniversity.repository.UserRepository;
 import com.smartuniversity.service.AchievementService;
+import com.smartuniversity.util.AuthUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +22,7 @@ public class AchievementController {
     private AchievementService achievementService;
 
     @Autowired
-    private UserRepository userRepository;
+    private AuthUtils authUtils;
 
     // Create new achievement
     @PostMapping
@@ -110,13 +110,11 @@ public class AchievementController {
 
     // Admin: Get pending achievements
     @GetMapping("/admin/pending")
-    public ResponseEntity<?> getPendingAchievements(@RequestParam Long adminId) {
+    public ResponseEntity<?> getPendingAchievements(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
@@ -129,17 +127,17 @@ public class AchievementController {
 
     // Admin: Approve achievement
     @PostMapping("/{achievementId}/approve")
-    public ResponseEntity<?> approveAchievement(@PathVariable Long achievementId, @RequestParam Long adminId) {
+    public ResponseEntity<?> approveAchievement(
+            @PathVariable Long achievementId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            User admin = authUtils.getAdminFromAuthHeader(authHeader);
+            if (admin == null) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
-            achievementService.approveAchievement(achievementId, adminId);
+            achievementService.approveAchievement(achievementId, admin.getId());
             return ResponseEntity.ok(Map.of("message", "Achievement approved successfully"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -149,21 +147,18 @@ public class AchievementController {
     // Admin: Reject achievement
     @PostMapping("/{achievementId}/reject")
     public ResponseEntity<?> rejectAchievement(
-        @PathVariable Long achievementId,
-        @RequestParam Long adminId,
-        @RequestBody Map<String, String> data
-    ) {
+            @PathVariable Long achievementId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody Map<String, String> data) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            User admin = authUtils.getAdminFromAuthHeader(authHeader);
+            if (admin == null) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
             String reason = data.get("reason");
-            achievementService.rejectAchievement(achievementId, adminId, reason);
+            achievementService.rejectAchievement(achievementId, admin.getId(), reason);
             return ResponseEntity.ok(Map.of("message", "Achievement rejected"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -172,13 +167,12 @@ public class AchievementController {
 
     // Admin: Hide achievement
     @PostMapping("/{achievementId}/hide")
-    public ResponseEntity<?> hideAchievement(@PathVariable Long achievementId, @RequestParam Long adminId) {
+    public ResponseEntity<?> hideAchievement(
+            @PathVariable Long achievementId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
@@ -191,13 +185,12 @@ public class AchievementController {
 
     // Admin: Unhide achievement
     @PostMapping("/{achievementId}/unhide")
-    public ResponseEntity<?> unhideAchievement(@PathVariable Long achievementId, @RequestParam Long adminId) {
+    public ResponseEntity<?> unhideAchievement(
+            @PathVariable Long achievementId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            // Verify admin role
-            User admin = userRepository.findById(adminId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-            if (admin.getRole() != User.UserRole.ADMIN) {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
             }
 
