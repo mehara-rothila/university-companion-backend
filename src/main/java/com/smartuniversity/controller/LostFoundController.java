@@ -388,4 +388,34 @@ public class LostFoundController {
             return ResponseEntity.internalServerError().body("Error rejecting item: " + e.getMessage());
         }
     }
+
+    // Admin endpoint to update item image
+    @PutMapping("/items/{id}/image")
+    public ResponseEntity<?> updateItemImage(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        try {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
+                return ResponseEntity.status(403).body("Access denied. Admin privileges required.");
+            }
+
+            Optional<LostFoundItem> itemOpt = lostFoundItemRepository.findById(id);
+            if (!itemOpt.isPresent()) {
+                return ResponseEntity.status(404).body("Item not found");
+            }
+
+            LostFoundItem item = itemOpt.get();
+            String imageUrl = request.get("imageUrl");
+            item.setImageUrl(imageUrl);
+
+            LostFoundItem savedItem = lostFoundItemRepository.save(item);
+            return ResponseEntity.ok(new LostFoundItemResponse(savedItem));
+        } catch (Exception e) {
+            System.err.println("Error updating item image: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body("Error updating item image: " + e.getMessage());
+        }
+    }
 }
