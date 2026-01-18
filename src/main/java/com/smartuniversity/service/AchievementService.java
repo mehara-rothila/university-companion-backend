@@ -133,6 +133,15 @@ public class AchievementService {
         achievementRepository.save(achievement);
     }
 
+    // Update achievement image (admin only)
+    @Transactional
+    public void updateAchievementImage(Long achievementId, String imageUrl) {
+        StudentAchievement achievement = achievementRepository.findById(achievementId)
+            .orElseThrow(() -> new RuntimeException("Achievement not found"));
+        achievement.setImageUrl(imageUrl);
+        achievementRepository.save(achievement);
+    }
+
     // Like achievement
     @Transactional
     public void likeAchievement(Long achievementId) {

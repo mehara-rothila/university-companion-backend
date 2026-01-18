@@ -307,4 +307,24 @@ public class AchievementController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
+    // Admin: Update achievement image
+    @PutMapping("/{achievementId}/image")
+    public ResponseEntity<?> updateAchievementImage(
+            @PathVariable Long achievementId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody Map<String, String> data) {
+        try {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
+                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
+            }
+
+            String imageUrl = data.get("imageUrl");
+            achievementService.updateAchievementImage(achievementId, imageUrl);
+            return ResponseEntity.ok(Map.of("message", "Achievement image updated successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 }
