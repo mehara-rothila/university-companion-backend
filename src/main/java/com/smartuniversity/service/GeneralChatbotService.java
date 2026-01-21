@@ -32,8 +32,8 @@ public class GeneralChatbotService {
     @Value("${gemini.api.key}")
     private String apiKey;
 
-    // Using Gemini 2.5 Pro for advanced reasoning capabilities
-    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent";
+    // Using Gemini 2.0 Flash for fast responses (free tier supported)
+    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
     private static final int MAX_REQUESTS_PER_HOUR = 50;
     private static final long HOUR_IN_MILLIS = 60 * 60 * 1000;
 
