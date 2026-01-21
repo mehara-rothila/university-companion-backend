@@ -32,8 +32,8 @@ public class GeneralChatbotService {
     @Value("${gemini.api.key}")
     private String apiKey;
 
-    // Using Gemini 3 Pro for superior performance
-    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent";
+    // Using Gemini 2.5 Pro for advanced reasoning capabilities
+    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent";
     private static final int MAX_REQUESTS_PER_HOUR = 50;
     private static final long HOUR_IN_MILLIS = 60 * 60 * 1000;
 
@@ -310,18 +310,13 @@ Remember: You represent University of Moratuwa and should embody the values of a
         contents.add(content);
         requestBody.put("contents", contents);
 
-        // Generation config for Gemini 3 Pro
+        // Generation config for Gemini 1.5 Pro
         Map<String, Object> generationConfig = new HashMap<>();
         generationConfig.put("temperature", 0.7);
         generationConfig.put("topK", 40);
         generationConfig.put("topP", 0.95);
         generationConfig.put("maxOutputTokens", 8192);
         requestBody.put("generationConfig", generationConfig);
-
-        // Thinking config for Gemini 3 Pro
-        Map<String, Object> thinkingConfig = new HashMap<>();
-        thinkingConfig.put("thinkingLevel", "high");
-        requestBody.put("thinkingConfig", thinkingConfig);
 
         // Set headers
         HttpHeaders headers = new HttpHeaders();
