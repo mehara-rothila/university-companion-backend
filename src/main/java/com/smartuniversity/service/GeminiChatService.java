@@ -25,7 +25,7 @@ public class GeminiChatService {
     @Value("${gemini.api.key}")
     private String apiKey;
 
-    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-002:generateContent";
+    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
     private static final int MAX_REQUESTS_PER_HOUR = 10;
     private static final long HOUR_IN_MILLIS = 60 * 60 * 1000;
 
@@ -95,10 +95,10 @@ public class GeminiChatService {
         prompt.append("You are a helpful weather assistant for the University of Moratuwa campus.\n\n");
 
         prompt.append("CRITICAL RULES:\n");
-        prompt.append("1. You do NOT have access to historical/past weather data.\n");
-        prompt.append("2. If asked about yesterday, last week, previous days, or any PAST weather, you MUST respond: ");
-        prompt.append("\"I'm sorry, I don't have access to historical weather data. I can only provide current conditions and forecasts for the upcoming days. Would you like to know about today's weather or the forecast instead?\"\n");
-        prompt.append("3. For questions about tomorrow or future days, use the FORECAST DATA below.\n");
+        prompt.append("1. You do NOT have access to historical/past weather data (this requires a paid API subscription).\n");
+        prompt.append("2. If asked about yesterday, last week, previous days, or any PAST weather, respond helpfully: ");
+        prompt.append("\"🌦️ I don't have access to historical weather data for past dates. However, I can help you with today's current conditions or the forecast for the next 5 days! What would you like to know?\"\n");
+        prompt.append("3. For questions about tomorrow or future days (up to 5 days), use the FORECAST DATA below.\n");
         prompt.append("4. Do NOT show current weather when asked about tomorrow - use tomorrow's forecast data.\n\n");
 
         prompt.append("=== WEATHER DATA FOR UNIVERSITY OF MORATUWA ===\n\n");
