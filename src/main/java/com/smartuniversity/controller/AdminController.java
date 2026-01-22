@@ -104,6 +104,94 @@ public class AdminController {
     }
     
     /**
+     * Create a new user (Admin only)
+     * Used for creating faculty, staff, or additional admin accounts
+     */
+    @PostMapping("/users")
+    public ResponseEntity<?> createUser(@RequestBody Map<String, Object> request) {
+        try {
+            String firstName = (String) request.get("firstName");
+            String lastName = (String) request.get("lastName");
+            String email = (String) request.get("email");
+            String username = (String) request.get("username");
+            String password = (String) request.get("password");
+            String roleStr = (String) request.get("role");
+            String studentId = (String) request.get("studentId");
+            String major = (String) request.get("major");
+            Integer year = request.get("year") != null ? ((Number) request.get("year")).intValue() : null;
+            
+            // Validate required fields
+            if (firstName == null || firstName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "First name is required"));
+            }
+            if (lastName == null || lastName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Last name is required"));
+            }
+            if (email == null || email.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+            }
+            if (username == null || username.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Username is required"));
+            }
+            if (password == null || password.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Password is required"));
+            }
+            
+            // Check for existing username or email
+            if (userRepository.existsByUsername(username)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Username is already taken"));
+            }
+            if (userRepository.existsByEmail(email)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Email is already in use"));
+            }
+            
+            // Parse role (default to STUDENT if not specified)
+            User.UserRole role = User.UserRole.STUDENT;
+            if (roleStr != null && !roleStr.trim().isEmpty()) {
+                try {
+                    role = User.UserRole.valueOf(roleStr.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Invalid role. Must be STUDENT, FACULTY, or ADMIN"));
+                }
+            }
+            
+            // Create user
+            User user = new User(firstName, lastName, email, username, passwordEncoder.encode(password));
+            user.setRole(role);
+            user.setEnabled(true);
+            user.setEmailVerified(true); // Admin-created accounts are pre-verified
+            user.setProvider("local");
+            user.setCreatedAt(LocalDateTime.now());
+            user.setUpdatedAt(LocalDateTime.now());
+            
+            // Optional fields
+            if (studentId != null) user.setStudentId(studentId);
+            if (major != null) user.setMajor(major);
+            if (year != null) user.setYear(year);
+            
+            userRepository.save(user);
+            
+            return ResponseEntity.ok(Map.of(
+                "message", "User created successfully",
+                "user", Map.of(
+                    "id", user.getId(),
+                    "email", user.getEmail(),
+                    "username", user.getUsername(),
+                    "firstName", user.getFirstName(),
+                    "lastName", user.getLastName(),
+                    "role", user.getRole().name(),
+                    "emailVerified", user.isEmailVerified(),
+                    "enabled", user.isEnabled()
+                )
+            ));
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of("error", "Failed to create user: " + e.getMessage()));
+        }
+    }
+    
+    /**
      * Update user details
      */
     @PutMapping("/users/{id}")
