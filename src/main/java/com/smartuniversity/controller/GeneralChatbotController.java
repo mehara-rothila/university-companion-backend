@@ -2,8 +2,10 @@ package com.smartuniversity.controller;
 
 import com.smartuniversity.dto.ChatbotRequest;
 import com.smartuniversity.dto.ChatbotResponse;
+import com.smartuniversity.exception.TokenExhaustedException;
 import com.smartuniversity.service.GeneralChatbotService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,6 +46,9 @@ public class GeneralChatbotController {
                 return ResponseEntity.badRequest().body(response);
             }
 
+        } catch (TokenExhaustedException e) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ChatbotResponse.error(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                 .body(ChatbotResponse.error("Internal server error: " + e.getMessage()));

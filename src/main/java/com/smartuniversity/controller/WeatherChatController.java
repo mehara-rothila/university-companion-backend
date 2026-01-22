@@ -3,8 +3,10 @@ package com.smartuniversity.controller;
 import com.smartuniversity.dto.WeatherChatRequest;
 import com.smartuniversity.dto.WeatherChatResponse;
 import com.smartuniversity.dto.WeatherResponse;
+import com.smartuniversity.exception.TokenExhaustedException;
 import com.smartuniversity.service.GeminiChatService;
 import com.smartuniversity.service.WeatherService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -46,6 +48,9 @@ public class WeatherChatController {
                 return ResponseEntity.badRequest().body(response);
             }
 
+        } catch (TokenExhaustedException e) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(WeatherChatResponse.error(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                     .body(WeatherChatResponse.error("Internal server error: " + e.getMessage()));
