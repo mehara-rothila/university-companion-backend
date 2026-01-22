@@ -224,30 +224,48 @@ public class FinancialAidController {
 
         Optional<FinancialAid> applicationOpt = financialAidRepository.findById(request.getFinancialAidId());
         if (!applicationOpt.isPresent()) {
-            return ResponseEntity.badRequest().body("Financial aid application not found");
+            return ResponseEntity.badRequest().body(Map.of("error", "Financial aid application not found"));
         }
 
         User donor = authUtils.getUserFromAuthHeader(authHeader);
         if (donor == null) {
-            return ResponseEntity.badRequest().body("User not found. Please log in.");
+            return ResponseEntity.badRequest().body(Map.of("error", "User not found. Please log in."));
         }
 
         FinancialAid application = applicationOpt.get();
-        
+
+        // Donations only allowed for APPROVED applications (fraud prevention)
+        if (application.getStatus() != FinancialAid.ApplicationStatus.APPROVED) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Donations are only allowed for approved applications",
+                "currentStatus", application.getStatus().toString()
+            ));
+        }
+
+        // Check if donation is enabled for this application
+        if (!application.isDonationEligible()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "This application is not eligible for donations"));
+        }
+
         FinancialAidDonation donation = new FinancialAidDonation(
             application, donor, request.getAmount());
         donation.setAnonymous(request.isAnonymous());
         donation.setMessage(request.getMessage());
-        
+
         FinancialAidDonation savedDonation = donationRepository.save(donation);
-        
+
         // Update raised amount and supporter count
         BigDecimal newRaisedAmount = application.getRaisedAmount().add(request.getAmount());
         application.setRaisedAmount(newRaisedAmount);
         application.setSupporterCount(application.getSupporterCount() + 1);
         financialAidRepository.save(application);
-        
-        return ResponseEntity.ok(savedDonation);
+
+        return ResponseEntity.ok(Map.of(
+            "message", "Donation successful",
+            "donationId", savedDonation.getId(),
+            "newRaisedAmount", newRaisedAmount,
+            "supporterCount", application.getSupporterCount()
+        ));
     }
     
     @GetMapping("/stats")
