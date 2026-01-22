@@ -29,11 +29,21 @@ public class AchievementService {
     // Create new achievement
     @Transactional
     public StudentAchievement createAchievement(StudentAchievement achievement) {
-        achievement.setStatus(ApprovalStatus.PENDING);
         achievement.setLikes(0);
         achievement.setComments(0);
         achievement.setShares(0);
         achievement.setHidden(false);
+
+        // Faculty auto-approval: Faculty members are Verified Creators
+        User creator = userRepository.findById(achievement.getStudentId()).orElse(null);
+        if (creator != null && creator.getRole() == User.UserRole.FACULTY) {
+            achievement.setStatus(ApprovalStatus.APPROVED);
+            achievement.setApprovedAt(java.time.LocalDateTime.now());
+            achievement.setApprovedBy(achievement.getStudentId()); // Self-approved as Verified Creator
+        } else {
+            achievement.setStatus(ApprovalStatus.PENDING);
+        }
+
         return achievementRepository.save(achievement);
     }
 
@@ -264,13 +274,32 @@ public class AchievementService {
             achievement.setAchievementDate(updatedData.getAchievementDate());
         }
 
+        // Check if user is Faculty for auto-approval
+        User owner = userRepository.findById(userId).orElse(null);
+        boolean isFaculty = owner != null && owner.getRole() == User.UserRole.FACULTY;
+
         // Reset to pending if it was approved or rejected (requires re-approval after edit)
+        // Faculty members get auto-approved on resubmit
         if (achievement.getStatus() == ApprovalStatus.APPROVED) {
-            achievement.setStatus(ApprovalStatus.PENDING);
-            achievement.setApprovedAt(null);
-            achievement.setApprovedBy(null);
+            if (isFaculty) {
+                // Faculty keeps approved status
+                achievement.setApprovedAt(LocalDateTime.now());
+                achievement.setApprovedBy(userId);
+            } else {
+                achievement.setStatus(ApprovalStatus.PENDING);
+                achievement.setApprovedAt(null);
+                achievement.setApprovedBy(null);
+            }
         } else if (achievement.getStatus() == ApprovalStatus.REJECTED) {
-            achievement.setStatus(ApprovalStatus.PENDING);
+            if (isFaculty) {
+                // Faculty auto-approved on resubmit
+                achievement.setStatus(ApprovalStatus.APPROVED);
+                achievement.setApprovedAt(LocalDateTime.now());
+                achievement.setApprovedBy(userId);
+            } else {
+                achievement.setStatus(ApprovalStatus.PENDING);
+            }
+            // Clear rejection info
             achievement.setRejectedAt(null);
             achievement.setRejectedBy(null);
             achievement.setRejectionReason(null);
