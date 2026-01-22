@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartuniversity.dto.WeatherChatResponse;
 import com.smartuniversity.dto.WeatherResponse;
+import com.smartuniversity.exception.TokenExhaustedException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -19,6 +20,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
 @Service
 public class GeminiChatService {
 
@@ -33,15 +36,26 @@ public class GeminiChatService {
     private final ObjectMapper objectMapper;
     private final Map<Long, List<Long>> rateLimitMap = new ConcurrentHashMap<>();
 
+    @Autowired
+    private TokenService tokenService;
+
     public GeminiChatService(RestTemplate restTemplate, ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
     }
 
     public WeatherChatResponse chat(String message, Long userId, WeatherResponse weatherData) {
-        // Check rate limit
+        // Check rate limit (10 requests/hour for weather - uses more expensive model)
         if (!checkRateLimit(userId)) {
-            return WeatherChatResponse.error("Rate limit exceeded. Maximum " + MAX_REQUESTS_PER_HOUR + " requests per hour allowed.");
+            return WeatherChatResponse.error("Rate limit exceeded. Maximum " + MAX_REQUESTS_PER_HOUR + " requests per hour allowed for weather chat.");
+        }
+
+        // Check daily token availability
+        if (userId != null && tokenService != null) {
+            Long estimatedTokens = 1000L; // Weather queries use more tokens due to context
+            if (!tokenService.hasEnoughTokens(userId, estimatedTokens)) {
+                throw new TokenExhaustedException("Daily token limit reached. Your limit resets at midnight. Please try again tomorrow.");
+            }
         }
 
         try {

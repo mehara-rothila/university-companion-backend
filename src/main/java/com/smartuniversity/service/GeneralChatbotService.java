@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartuniversity.dto.ChatbotRequest;
 import com.smartuniversity.dto.ChatbotResponse;
+import com.smartuniversity.exception.TokenExhaustedException;
 import com.smartuniversity.model.TokenTransaction;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -64,7 +65,7 @@ public class GeneralChatbotService {
         if (request.getUserId() != null && tokenService != null) {
             Long estimatedTokens = 500L;
             if (!tokenService.hasEnoughTokens(request.getUserId(), estimatedTokens)) {
-                return ChatbotResponse.error("Insufficient tokens. You have reached your daily limit of 500,000 tokens. Please try again tomorrow.");
+                throw new TokenExhaustedException("Daily token limit reached. Your limit resets at midnight. Please try again tomorrow.");
             }
         }
 
