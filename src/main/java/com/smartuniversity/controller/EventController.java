@@ -38,10 +38,15 @@ public class EventController {
     @Autowired
     private AuthUtils authUtils;
 
+    @Autowired
+    private com.smartuniversity.repository.EventAttendanceRepository attendanceRepository;
+
     // Create a new event
     @PostMapping
     public ResponseEntity<?> createEvent(@RequestBody Map<String, Object> eventData) {
         try {
+            Long creatorId = Long.valueOf(eventData.get("creatorId").toString());
+
             Event event = new Event();
             event.setTitle((String) eventData.get("title"));
             event.setDescription((String) eventData.get("description"));
@@ -49,7 +54,7 @@ public class EventController {
             event.setCategory((String) eventData.get("category"));
             event.setLocation((String) eventData.get("location"));
             event.setOrganizerName((String) eventData.get("organizerName"));
-            event.setCreatorId(Long.valueOf(eventData.get("creatorId").toString()));
+            event.setCreatorId(creatorId);
 
             // Parse ISO 8601 date strings
             event.setEventDate(LocalDateTime.parse(
@@ -80,9 +85,21 @@ public class EventController {
                 event.setRecurrencePattern((String) eventData.get("recurrencePattern"));
             }
 
+            // Faculty auto-approval: Faculty members are Verified Creators
+            User creator = userRepository.findById(creatorId).orElse(null);
+            String message;
+            if (creator != null && creator.getRole() == User.UserRole.FACULTY) {
+                event.setStatus(ApprovalStatus.APPROVED);
+                event.setApprovedAt(LocalDateTime.now());
+                event.setApprovedBy(creatorId); // Self-approved as Verified Creator
+                message = "Event created and auto-approved (Faculty Verified Creator)";
+            } else {
+                message = "Event created successfully and pending approval";
+            }
+
             Event savedEvent = eventRepository.save(event);
 
-            return ResponseEntity.ok(Map.of("id", savedEvent.getId(), "message", "Event created successfully and pending approval"));
+            return ResponseEntity.ok(Map.of("id", savedEvent.getId(), "message", message, "status", savedEvent.getStatus().toString()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Failed to create event: " + e.getMessage()));
         }
@@ -241,9 +258,27 @@ public class EventController {
                 return ResponseEntity.status(403).body(Map.of("error", "Only the event creator can edit this event"));
             }
 
-            // Only allow editing if status is PENDING
-            if (event.getStatus() != ApprovalStatus.PENDING) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Cannot edit event after it has been reviewed"));
+            // Allow editing if status is PENDING or REJECTED (for resubmission)
+            if (event.getStatus() != ApprovalStatus.PENDING && event.getStatus() != ApprovalStatus.REJECTED) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Cannot edit event after it has been approved"));
+            }
+
+            // If editing a REJECTED event, reset to PENDING for re-review
+            boolean wasRejected = event.getStatus() == ApprovalStatus.REJECTED;
+            if (wasRejected) {
+                // Check if creator is Faculty - auto-approve on resubmit
+                User creator = userRepository.findById(userId).orElse(null);
+                if (creator != null && creator.getRole() == User.UserRole.FACULTY) {
+                    event.setStatus(ApprovalStatus.APPROVED);
+                    event.setApprovedAt(LocalDateTime.now());
+                    event.setApprovedBy(userId);
+                } else {
+                    event.setStatus(ApprovalStatus.PENDING);
+                }
+                // Clear previous rejection info
+                event.setRejectionReason(null);
+                event.setRejectedAt(null);
+                event.setRejectedBy(null);
             }
 
             // Update fields
@@ -270,9 +305,15 @@ public class EventController {
                 event.setMaxAttendees(eventData.get("maxAttendees") != null ? Integer.valueOf(eventData.get("maxAttendees").toString()) : null);
             }
 
-            eventRepository.save(event);
+            Event savedEvent = eventRepository.save(event);
 
-            return ResponseEntity.ok(Map.of("message", "Event updated successfully"));
+            String message = wasRejected ?
+                (savedEvent.getStatus() == ApprovalStatus.APPROVED ?
+                    "Event resubmitted and auto-approved (Faculty Verified Creator)" :
+                    "Event resubmitted and pending approval") :
+                "Event updated successfully";
+
+            return ResponseEntity.ok(Map.of("message", message, "status", savedEvent.getStatus().toString()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -365,16 +406,27 @@ public class EventController {
 
             // Create registration
             EventRegistration registration = new EventRegistration(eventId, userId, status);
+            Integer waitlistPosition = null;
             if (status == RegistrationStatus.WAITLISTED) {
                 registration.setMovedToWaitlistAt(LocalDateTime.now());
+                // Calculate waitlist position (1-based)
+                long currentWaitlistCount = registrationRepository.countByEventIdAndStatus(eventId, RegistrationStatus.WAITLISTED);
+                waitlistPosition = (int) currentWaitlistCount + 1;
+                registration.setWaitlistPosition(waitlistPosition);
             }
             registrationRepository.save(registration);
 
             String message = status == RegistrationStatus.REGISTERED ?
                 "Successfully registered for event" :
-                "Event is full. You have been added to the waitlist";
+                "Event is full. You have been added to the waitlist at position #" + waitlistPosition;
 
-            return ResponseEntity.ok(Map.of("message", message, "status", status.toString()));
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", message);
+            response.put("status", status.toString());
+            if (waitlistPosition != null) {
+                response.put("waitlistPosition", waitlistPosition);
+            }
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -405,7 +457,31 @@ public class EventController {
                     EventRegistration firstWaitlisted = waitlist.get(0);
                     firstWaitlisted.setStatus(RegistrationStatus.REGISTERED);
                     firstWaitlisted.setMovedFromWaitlistAt(LocalDateTime.now());
+                    firstWaitlisted.setWaitlistPosition(null); // Clear waitlist position
                     registrationRepository.save(firstWaitlisted);
+
+                    // Update positions for remaining waitlisted users
+                    for (int i = 1; i < waitlist.size(); i++) {
+                        EventRegistration waitlistedUser = waitlist.get(i);
+                        waitlistedUser.setWaitlistPosition(i); // Positions are 1-based
+                        registrationRepository.save(waitlistedUser);
+                    }
+                }
+            } else if (previousStatus == RegistrationStatus.WAITLISTED) {
+                // User was on waitlist, update positions for remaining waitlisted users
+                Integer cancelledPosition = registration.getWaitlistPosition();
+                registration.setWaitlistPosition(null); // Clear cancelled user's position
+                registrationRepository.save(registration);
+
+                if (cancelledPosition != null) {
+                    List<EventRegistration> waitlist = registrationRepository.findByEventIdAndStatusOrderByMovedToWaitlistAtAsc(
+                        eventId, RegistrationStatus.WAITLISTED
+                    );
+                    int position = 1;
+                    for (EventRegistration waitlistedUser : waitlist) {
+                        waitlistedUser.setWaitlistPosition(position++);
+                        registrationRepository.save(waitlistedUser);
+                    }
                 }
             }
 
@@ -462,11 +538,17 @@ public class EventController {
             boolean isRegistered = registration.isPresent() && registration.get().getStatus() == RegistrationStatus.REGISTERED;
             boolean isWaitlisted = registration.isPresent() && registration.get().getStatus() == RegistrationStatus.WAITLISTED;
 
-            return ResponseEntity.ok(Map.of(
-                "isRegistered", isRegistered,
-                "isWaitlisted", isWaitlisted,
-                "status", registration.isPresent() ? registration.get().getStatus().toString() : "NOT_REGISTERED"
-            ));
+            Map<String, Object> response = new HashMap<>();
+            response.put("isRegistered", isRegistered);
+            response.put("isWaitlisted", isWaitlisted);
+            response.put("status", registration.isPresent() ? registration.get().getStatus().toString() : "NOT_REGISTERED");
+
+            // Include waitlist position if waitlisted
+            if (isWaitlisted && registration.get().getWaitlistPosition() != null) {
+                response.put("waitlistPosition", registration.get().getWaitlistPosition());
+            }
+
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -717,6 +799,171 @@ public class EventController {
             return ResponseEntity.ok(Map.of("message", "Event unhidden successfully"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ============================================
+    // ATTENDANCE TRACKING ENDPOINTS
+    // ============================================
+
+    /**
+     * Mark attendance for a user at an event
+     * Admin/Organizer only
+     */
+    @PostMapping("/{eventId}/attendance")
+    public ResponseEntity<?> markAttendance(@PathVariable Long eventId, @RequestBody com.smartuniversity.dto.AttendanceRequest request) {
+        try {
+            // Validate event exists
+            Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new RuntimeException("Event not found"));
+
+            // Validate user exists
+            User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+            // Check if already attended
+            if (attendanceRepository.existsByEventIdAndUserId(eventId, request.getUserId())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Attendance already marked for this user"));
+            }
+
+            // Get current user (who is marking attendance)
+            Long checkedInBy = authUtils.getCurrentUserId();
+
+            // Create attendance record
+            com.smartuniversity.model.EventAttendance attendance = new com.smartuniversity.model.EventAttendance(event, user, checkedInBy);
+            attendance.setNotes(request.getNotes());
+
+            com.smartuniversity.model.EventAttendance saved = attendanceRepository.save(attendance);
+
+            return ResponseEntity.ok(Map.of(
+                "message", "Attendance marked successfully",
+                "id", saved.getId(),
+                "checkedInAt", saved.getCheckedInAt().toString()
+            ));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get all attendance for an event
+     * Admin/Organizer only
+     */
+    @GetMapping("/{eventId}/attendance")
+    public ResponseEntity<?> getEventAttendance(@PathVariable Long eventId) {
+        try {
+            // Validate event exists
+            Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new RuntimeException("Event not found"));
+
+            List<com.smartuniversity.model.EventAttendance> attendanceList = attendanceRepository.findByEventId(eventId);
+
+            List<com.smartuniversity.dto.AttendanceResponse> responses = new ArrayList<>();
+            for (com.smartuniversity.model.EventAttendance attendance : attendanceList) {
+                User user = attendance.getUser();
+                User checkedInByUser = attendance.getCheckedInBy() != null ?
+                    userRepository.findById(attendance.getCheckedInBy()).orElse(null) : null;
+
+                com.smartuniversity.dto.AttendanceResponse response = new com.smartuniversity.dto.AttendanceResponse(
+                    attendance.getId(),
+                    event.getId(),
+                    event.getTitle(),
+                    user.getId(),
+                    user.getFirstName() + " " + user.getLastName(),
+                    user.getEmail(),
+                    attendance.getCheckedInAt(),
+                    attendance.getCheckedInBy(),
+                    checkedInByUser != null ? checkedInByUser.getFirstName() + " " + checkedInByUser.getLastName() : null,
+                    attendance.getNotes()
+                );
+                responses.add(response);
+            }
+
+            return ResponseEntity.ok(responses);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get attendance statistics for an event
+     * Admin/Organizer only
+     */
+    @GetMapping("/{eventId}/attendance/stats")
+    public ResponseEntity<?> getAttendanceStats(@PathVariable Long eventId) {
+        try {
+            // Validate event exists
+            Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new RuntimeException("Event not found"));
+
+            // Count registrations
+            long totalRegistered = registrationRepository.countByEventIdAndStatus(eventId, RegistrationStatus.REGISTERED);
+            long totalWaitlisted = registrationRepository.countByEventIdAndStatus(eventId, RegistrationStatus.WAITLISTED);
+
+            // Count attendance
+            long totalAttended = attendanceRepository.countByEventId(eventId);
+
+            // Calculate attendance rate
+            double attendanceRate = totalRegistered > 0 ? (double) totalAttended / totalRegistered * 100 : 0.0;
+
+            com.smartuniversity.dto.AttendanceStatsResponse stats = new com.smartuniversity.dto.AttendanceStatsResponse(
+                event.getId(),
+                event.getTitle(),
+                totalRegistered,
+                totalAttended,
+                totalWaitlisted,
+                Math.round(attendanceRate * 100.0) / 100.0  // Round to 2 decimal places
+            );
+
+            return ResponseEntity.ok(stats);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Remove attendance record
+     * Admin only
+     */
+    @DeleteMapping("/{eventId}/attendance/{userId}")
+    public ResponseEntity<?> removeAttendance(@PathVariable Long eventId, @PathVariable Long userId) {
+        try {
+            attendanceRepository.deleteByEventIdAndUserId(eventId, userId);
+            return ResponseEntity.ok(Map.of("message", "Attendance record removed successfully"));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Check if user attended an event
+     */
+    @GetMapping("/{eventId}/attendance/check/{userId}")
+    public ResponseEntity<?> checkAttendance(@PathVariable Long eventId, @PathVariable Long userId) {
+        try {
+            boolean attended = attendanceRepository.existsByEventIdAndUserId(eventId, userId);
+
+            if (attended) {
+                com.smartuniversity.model.EventAttendance attendance = attendanceRepository.findByEventIdAndUserId(eventId, userId)
+                    .orElse(null);
+                return ResponseEntity.ok(Map.of(
+                    "attended", true,
+                    "checkedInAt", attendance != null ? attendance.getCheckedInAt().toString() : null
+                ));
+            }
+
+            return ResponseEntity.ok(Map.of("attended", false));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
