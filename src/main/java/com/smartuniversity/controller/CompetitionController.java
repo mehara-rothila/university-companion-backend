@@ -50,6 +50,8 @@ public class CompetitionController {
     @PostMapping
     public ResponseEntity<?> createCompetition(@RequestBody Map<String, Object> competitionData) {
         try {
+            Long organizerId = Long.valueOf(competitionData.get("organizerId").toString());
+
             Competition competition = new Competition();
             competition.setTitle((String) competitionData.get("title"));
             competition.setDescription((String) competitionData.get("description"));
@@ -57,7 +59,7 @@ public class CompetitionController {
             competition.setCategory((String) competitionData.get("category"));
             competition.setLocation((String) competitionData.get("location"));
             competition.setPrizes((String) competitionData.get("prizes"));
-            competition.setOrganizerId(Long.valueOf(competitionData.get("organizerId").toString()));
+            competition.setOrganizerId(organizerId);
 
             // Parse ISO 8601 date strings with timezone (e.g., "2025-10-16T10:57:00.000Z")
             competition.setStartDate(LocalDateTime.parse(
@@ -88,6 +90,18 @@ public class CompetitionController {
             }
             competition.setExternalEnrollmentUrl(externalUrl);
 
+            // Faculty auto-approval: Faculty members are Verified Creators
+            User organizer = userRepository.findById(organizerId).orElse(null);
+            String message;
+            if (organizer != null && organizer.getRole() == User.UserRole.FACULTY) {
+                competition.setStatus(ApprovalStatus.APPROVED);
+                competition.setApprovedAt(LocalDateTime.now());
+                competition.setApprovedBy(organizerId); // Self-approved as Verified Creator
+                message = "Competition created and auto-approved (Faculty Verified Creator)";
+            } else {
+                message = "Competition created successfully and pending approval";
+            }
+
             Competition savedCompetition = competitionRepository.save(competition);
 
             // Save form fields if internal enrollment is enabled
@@ -106,9 +120,80 @@ public class CompetitionController {
                 }
             }
 
-            return ResponseEntity.ok(Map.of("id", savedCompetition.getId(), "message", "Competition created successfully and pending approval"));
+            return ResponseEntity.ok(Map.of("id", savedCompetition.getId(), "message", message, "status", savedCompetition.getStatus().toString()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Failed to create competition: " + e.getMessage()));
+        }
+    }
+
+    // Update competition (only organizer can edit)
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateCompetition(@PathVariable Long id, @RequestBody Map<String, Object> competitionData) {
+        try {
+            Competition competition = competitionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Competition not found"));
+
+            // Check if user is the organizer
+            Long userId = Long.valueOf(competitionData.get("userId").toString());
+            if (!competition.getOrganizerId().equals(userId)) {
+                return ResponseEntity.status(403).body(Map.of("error", "Only the competition organizer can edit this competition"));
+            }
+
+            // Allow editing if status is PENDING or REJECTED (for resubmission)
+            if (competition.getStatus() != ApprovalStatus.PENDING && competition.getStatus() != ApprovalStatus.REJECTED) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Cannot edit competition after it has been approved"));
+            }
+
+            // If editing a REJECTED competition, reset status for re-review
+            boolean wasRejected = competition.getStatus() == ApprovalStatus.REJECTED;
+            if (wasRejected) {
+                // Check if organizer is Faculty - auto-approve on resubmit
+                User organizer = userRepository.findById(userId).orElse(null);
+                if (organizer != null && organizer.getRole() == User.UserRole.FACULTY) {
+                    competition.setStatus(ApprovalStatus.APPROVED);
+                    competition.setApprovedAt(LocalDateTime.now());
+                    competition.setApprovedBy(userId);
+                } else {
+                    competition.setStatus(ApprovalStatus.PENDING);
+                }
+                // Clear previous rejection info
+                competition.setRejectionReason(null);
+                competition.setRejectedAt(null);
+                competition.setRejectedBy(null);
+            }
+
+            // Update fields
+            if (competitionData.containsKey("title")) competition.setTitle((String) competitionData.get("title"));
+            if (competitionData.containsKey("description")) competition.setDescription((String) competitionData.get("description"));
+            if (competitionData.containsKey("imageUrl")) competition.setImageUrl((String) competitionData.get("imageUrl"));
+            if (competitionData.containsKey("category")) competition.setCategory((String) competitionData.get("category"));
+            if (competitionData.containsKey("location")) competition.setLocation((String) competitionData.get("location"));
+            if (competitionData.containsKey("prizes")) competition.setPrizes((String) competitionData.get("prizes"));
+
+            if (competitionData.containsKey("startDate")) {
+                competition.setStartDate(LocalDateTime.parse(((String) competitionData.get("startDate")).replace("Z", "")));
+            }
+            if (competitionData.containsKey("endDate")) {
+                competition.setEndDate(LocalDateTime.parse(((String) competitionData.get("endDate")).replace("Z", "")));
+            }
+            if (competitionData.containsKey("registrationDeadline") && competitionData.get("registrationDeadline") != null) {
+                competition.setRegistrationDeadline(LocalDateTime.parse(((String) competitionData.get("registrationDeadline")).replace("Z", "")));
+            }
+            if (competitionData.containsKey("maxParticipants")) {
+                competition.setMaxParticipants(competitionData.get("maxParticipants") != null ? Integer.valueOf(competitionData.get("maxParticipants").toString()) : null);
+            }
+
+            Competition savedCompetition = competitionRepository.save(competition);
+
+            String message = wasRejected ?
+                (savedCompetition.getStatus() == ApprovalStatus.APPROVED ?
+                    "Competition resubmitted and auto-approved (Faculty Verified Creator)" :
+                    "Competition resubmitted and pending approval") :
+                "Competition updated successfully";
+
+            return ResponseEntity.ok(Map.of("message", message, "status", savedCompetition.getStatus().toString()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
