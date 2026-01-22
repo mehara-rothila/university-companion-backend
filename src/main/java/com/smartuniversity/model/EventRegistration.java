@@ -31,6 +31,9 @@ public class EventRegistration {
 
     private LocalDateTime movedFromWaitlistAt;
 
+    // Waitlist position (null if not waitlisted, 1-based position if waitlisted)
+    private Integer waitlistPosition;
+
     public enum RegistrationStatus {
         REGISTERED, WAITLISTED, CANCELLED
     }
@@ -112,5 +115,13 @@ public class EventRegistration {
 
     public void setMovedFromWaitlistAt(LocalDateTime movedFromWaitlistAt) {
         this.movedFromWaitlistAt = movedFromWaitlistAt;
+    }
+
+    public Integer getWaitlistPosition() {
+        return waitlistPosition;
+    }
+
+    public void setWaitlistPosition(Integer waitlistPosition) {
+        this.waitlistPosition = waitlistPosition;
     }
 }
