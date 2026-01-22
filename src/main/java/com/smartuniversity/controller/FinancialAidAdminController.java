@@ -33,6 +33,9 @@ public class FinancialAidAdminController {
 
     @Autowired
     private AuthUtils authUtils;
+
+    @Autowired
+    private com.smartuniversity.repository.FinancialAidDisbursementRepository disbursementRepository;
     
     @GetMapping("/applications")
     public ResponseEntity<List<FinancialAidResponse>> getAllApplicationsForReview(
@@ -280,10 +283,214 @@ public class FinancialAidAdminController {
             application.setUpdatedAt(LocalDateTime.now());
             
             FinancialAid savedApplication = financialAidRepository.save(application);
-            
+
             return ResponseEntity.ok(new FinancialAidResponse(savedApplication));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error creating application: " + e.getMessage());
+        }
+    }
+
+    // ============================================
+    // DISBURSEMENT TRACKING ENDPOINTS
+    // ============================================
+
+    /**
+     * Create a new disbursement record
+     * Admin only
+     */
+    @PostMapping("/disbursements")
+    public ResponseEntity<?> createDisbursement(@RequestBody com.smartuniversity.dto.DisbursementRequest request) {
+        try {
+            // Validate financial aid exists and is approved
+            FinancialAid application = financialAidRepository.findById(request.getFinancialAidId())
+                .orElseThrow(() -> new RuntimeException("Financial aid application not found"));
+
+            if (application.getStatus() != FinancialAid.ApplicationStatus.APPROVED) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Can only disburse funds for APPROVED applications"));
+            }
+
+            // Create disbursement
+            com.smartuniversity.model.FinancialAidDisbursement disbursement = new com.smartuniversity.model.FinancialAidDisbursement();
+            disbursement.setFinancialAid(application);
+            disbursement.setAmount(request.getAmount());
+            disbursement.setMethod(com.smartuniversity.model.FinancialAidDisbursement.DisbursementMethod.valueOf(request.getMethod()));
+            disbursement.setTransactionReference(request.getTransactionReference());
+            disbursement.setBankDetails(request.getBankDetails());
+            disbursement.setScheduledDate(request.getScheduledDate());
+            disbursement.setNotes(request.getNotes());
+            disbursement.setDisbursedBy(authUtils.getCurrentUserId());
+
+            com.smartuniversity.model.FinancialAidDisbursement saved = disbursementRepository.save(disbursement);
+
+            return ResponseEntity.ok(Map.of(
+                "message", "Disbursement record created successfully",
+                "id", saved.getId(),
+                "status", saved.getStatus().toString()
+            ));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get all disbursements for a financial aid application
+     * Admin only
+     */
+    @GetMapping("/disbursements/{financialAidId}")
+    public ResponseEntity<?> getDisbursements(@PathVariable Long financialAidId) {
+        try {
+            List<com.smartuniversity.model.FinancialAidDisbursement> disbursements =
+                disbursementRepository.findByFinancialAidId(financialAidId);
+
+            List<com.smartuniversity.dto.DisbursementResponse> responses = disbursements.stream().map(d -> {
+                com.smartuniversity.dto.DisbursementResponse response = new com.smartuniversity.dto.DisbursementResponse();
+                response.setId(d.getId());
+                response.setFinancialAidId(d.getFinancialAid().getId());
+                response.setApplicationTitle(d.getFinancialAid().getTitle());
+
+                User applicant = d.getFinancialAid().getApplicant();
+                response.setApplicantName(applicant.getFirstName() + " " + applicant.getLastName());
+
+                response.setAmount(d.getAmount());
+                response.setStatus(d.getStatus().toString());
+                response.setMethod(d.getMethod().toString());
+                response.setTransactionReference(d.getTransactionReference());
+                response.setBankDetails(d.getBankDetails());
+                response.setDisbursedBy(d.getDisbursedBy());
+
+                if (d.getDisbursedBy() != null) {
+                    userRepository.findById(d.getDisbursedBy()).ifPresent(user -> {
+                        response.setDisbursedByName(user.getFirstName() + " " + user.getLastName());
+                    });
+                }
+
+                response.setDisbursedAt(d.getDisbursedAt());
+                response.setScheduledDate(d.getScheduledDate());
+                response.setNotes(d.getNotes());
+                response.setCreatedAt(d.getCreatedAt());
+
+                return response;
+            }).collect(Collectors.toList());
+
+            return ResponseEntity.ok(responses);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Update disbursement status
+     * Admin only
+     */
+    @PutMapping("/disbursements/{disbursementId}/status")
+    public ResponseEntity<?> updateDisbursementStatus(
+            @PathVariable Long disbursementId,
+            @RequestBody Map<String, String> request) {
+        try {
+            com.smartuniversity.model.FinancialAidDisbursement disbursement = disbursementRepository.findById(disbursementId)
+                .orElseThrow(() -> new RuntimeException("Disbursement not found"));
+
+            String newStatus = request.get("status");
+            disbursement.setStatus(com.smartuniversity.model.FinancialAidDisbursement.DisbursementStatus.valueOf(newStatus));
+
+            if ("COMPLETED".equals(newStatus)) {
+                disbursement.setDisbursedAt(LocalDateTime.now());
+                disbursement.setDisbursedBy(authUtils.getCurrentUserId());
+            }
+
+            if (request.containsKey("notes")) {
+                disbursement.setNotes(request.get("notes"));
+            }
+
+            if (request.containsKey("transactionReference")) {
+                disbursement.setTransactionReference(request.get("transactionReference"));
+            }
+
+            com.smartuniversity.model.FinancialAidDisbursement updated = disbursementRepository.save(disbursement);
+
+            return ResponseEntity.ok(Map.of(
+                "message", "Disbursement status updated successfully",
+                "status", updated.getStatus().toString()
+            ));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get all pending disbursements
+     * Admin only
+     */
+    @GetMapping("/disbursements/pending")
+    public ResponseEntity<?> getPendingDisbursements() {
+        try {
+            List<com.smartuniversity.model.FinancialAidDisbursement> pendingDisbursements =
+                disbursementRepository.findByStatusOrderByScheduledDateAsc(
+                    com.smartuniversity.model.FinancialAidDisbursement.DisbursementStatus.PENDING
+                );
+
+            List<com.smartuniversity.dto.DisbursementResponse> responses = pendingDisbursements.stream().map(d -> {
+                com.smartuniversity.dto.DisbursementResponse response = new com.smartuniversity.dto.DisbursementResponse();
+                response.setId(d.getId());
+                response.setFinancialAidId(d.getFinancialAid().getId());
+                response.setApplicationTitle(d.getFinancialAid().getTitle());
+
+                User applicant = d.getFinancialAid().getApplicant();
+                response.setApplicantName(applicant.getFirstName() + " " + applicant.getLastName());
+
+                response.setAmount(d.getAmount());
+                response.setStatus(d.getStatus().toString());
+                response.setMethod(d.getMethod().toString());
+                response.setScheduledDate(d.getScheduledDate());
+                response.setNotes(d.getNotes());
+                response.setCreatedAt(d.getCreatedAt());
+
+                return response;
+            }).collect(Collectors.toList());
+
+            return ResponseEntity.ok(responses);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get disbursement statistics
+     * Admin only
+     */
+    @GetMapping("/disbursements/stats")
+    public ResponseEntity<?> getDisbursementStats() {
+        try {
+            long totalDisbursements = disbursementRepository.count();
+            long pendingCount = disbursementRepository.findByStatus(
+                com.smartuniversity.model.FinancialAidDisbursement.DisbursementStatus.PENDING
+            ).size();
+            long completedCount = disbursementRepository.findByStatus(
+                com.smartuniversity.model.FinancialAidDisbursement.DisbursementStatus.COMPLETED
+            ).size();
+            long failedCount = disbursementRepository.findByStatus(
+                com.smartuniversity.model.FinancialAidDisbursement.DisbursementStatus.FAILED
+            ).size();
+
+            Map<String, Object> stats = new HashMap<>();
+            stats.put("total", totalDisbursements);
+            stats.put("pending", pendingCount);
+            stats.put("completed", completedCount);
+            stats.put("failed", failedCount);
+
+            return ResponseEntity.ok(stats);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 }
