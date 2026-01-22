@@ -4,6 +4,9 @@ import com.smartuniversity.model.User;
 import com.smartuniversity.repository.UserRepository;
 import com.smartuniversity.security.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -105,5 +108,34 @@ public class AuthUtils {
      */
     public boolean isAdmin(String authHeader) {
         return getAdminFromAuthHeader(authHeader) != null;
+    }
+
+    /**
+     * Get the current authenticated user's ID from Spring Security context
+     * Falls back to User ID 1 if no authentication is found
+     *
+     * @return User ID of currently authenticated user
+     */
+    public Long getCurrentUserId() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            if (authentication != null && authentication.isAuthenticated() &&
+                !(authentication.getPrincipal() instanceof String)) {
+
+                UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+                String username = userDetails.getUsername();
+
+                Optional<User> userOpt = userRepository.findByUsername(username);
+                if (userOpt.isPresent()) {
+                    return userOpt.get().getId();
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error getting current user ID: " + e.getMessage());
+        }
+
+        // Fallback to User ID 1
+        return 1L;
     }
 }
