@@ -79,6 +79,14 @@ public class User implements UserDetails {
 
     private LocalDateTime resetPasswordOtpExpiry; // OTP expiration time
 
+    // Email verification fields
+    private boolean emailVerified = false;
+
+    @Size(max = 255)
+    private String emailVerificationOtp; // Hashed OTP for email verification
+
+    private LocalDateTime emailVerificationOtpExpiry; // OTP expiration time
+
     public enum UserRole {
         STUDENT, FACULTY, ADMIN
     }
@@ -179,4 +187,13 @@ public class User implements UserDetails {
 
     public LocalDateTime getResetPasswordOtpExpiry() { return resetPasswordOtpExpiry; }
     public void setResetPasswordOtpExpiry(LocalDateTime resetPasswordOtpExpiry) { this.resetPasswordOtpExpiry = resetPasswordOtpExpiry; }
+
+    public boolean isEmailVerified() { return emailVerified; }
+    public void setEmailVerified(boolean emailVerified) { this.emailVerified = emailVerified; }
+
+    public String getEmailVerificationOtp() { return emailVerificationOtp; }
+    public void setEmailVerificationOtp(String emailVerificationOtp) { this.emailVerificationOtp = emailVerificationOtp; }
+
+    public LocalDateTime getEmailVerificationOtpExpiry() { return emailVerificationOtpExpiry; }
+    public void setEmailVerificationOtpExpiry(LocalDateTime emailVerificationOtpExpiry) { this.emailVerificationOtpExpiry = emailVerificationOtpExpiry; }
 }
