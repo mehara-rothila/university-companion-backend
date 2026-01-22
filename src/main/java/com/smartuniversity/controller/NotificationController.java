@@ -3,7 +3,9 @@ package com.smartuniversity.controller;
 import com.smartuniversity.dto.NotificationRequest;
 import com.smartuniversity.dto.NotificationResponse;
 import com.smartuniversity.model.Notification;
+import com.smartuniversity.model.NotificationPreference;
 import com.smartuniversity.model.User;
+import com.smartuniversity.repository.NotificationPreferenceRepository;
 import com.smartuniversity.repository.NotificationRepository;
 import com.smartuniversity.repository.UserRepository;
 import com.smartuniversity.security.JwtUtils;
@@ -35,6 +37,9 @@ public class NotificationController {
 
     @Autowired
     private NotificationRepository notificationRepository;
+
+    @Autowired
+    private NotificationPreferenceRepository preferenceRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -271,6 +276,148 @@ public class NotificationController {
     public String greeting(String message) throws Exception {
         Thread.sleep(1000);
         return "Hello, " + message + "!";
+    }
+
+    // ============ Notification Preferences Management ============
+
+    // Get user's notification preferences
+    @GetMapping("/preferences")
+    public ResponseEntity<?> getNotificationPreferences(@RequestHeader("Authorization") String token) {
+        try {
+            String jwt = token.substring(7);
+            String username = jwtUtils.getUserNameFromJwtToken(jwt);
+
+            Optional<User> user = userRepository.findByUsername(username);
+            if (user.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "User not found"));
+            }
+
+            Long userId = user.get().getId();
+            NotificationPreference preference = preferenceRepository.findByUserId(userId)
+                .orElseGet(() -> {
+                    // Create default preferences if none exist
+                    NotificationPreference newPref = new NotificationPreference(userId);
+                    return preferenceRepository.save(newPref);
+                });
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("userId", userId);
+            response.put("enabledTypes", preference.getEnabledTypes());
+            response.put("note", "EMERGENCY notifications are always enabled and cannot be disabled");
+            response.put("updatedAt", preference.getUpdatedAt());
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Failed to get preferences: " + e.getMessage()));
+        }
+    }
+
+    // Update notification preferences (toggle a specific type)
+    @PutMapping("/preferences/toggle")
+    public ResponseEntity<?> toggleNotificationPreference(
+            @RequestHeader("Authorization") String token,
+            @RequestBody Map<String, Object> request) {
+        try {
+            String jwt = token.substring(7);
+            String username = jwtUtils.getUserNameFromJwtToken(jwt);
+
+            Optional<User> user = userRepository.findByUsername(username);
+            if (user.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "User not found"));
+            }
+
+            String typeStr = (String) request.get("type");
+            Boolean enabled = (Boolean) request.get("enabled");
+
+            if (typeStr == null || enabled == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "type and enabled fields are required"));
+            }
+
+            // Prevent disabling EMERGENCY notifications
+            if (typeStr.equals("EMERGENCY")) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Emergency notifications cannot be disabled for safety reasons"
+                ));
+            }
+
+            Notification.NotificationType type;
+            try {
+                type = Notification.NotificationType.valueOf(typeStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Invalid notification type: " + typeStr));
+            }
+
+            Long userId = user.get().getId();
+            NotificationPreference preference = preferenceRepository.findByUserId(userId)
+                .orElseGet(() -> {
+                    NotificationPreference newPref = new NotificationPreference(userId);
+                    return preferenceRepository.save(newPref);
+                });
+
+            preference.toggleType(type, enabled);
+            preferenceRepository.save(preference);
+
+            return ResponseEntity.ok(Map.of(
+                "message", type + " notifications " + (enabled ? "enabled" : "disabled"),
+                "type", type.toString(),
+                "enabled", enabled,
+                "enabledTypes", preference.getEnabledTypes()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Failed to update preference: " + e.getMessage()));
+        }
+    }
+
+    // Bulk update notification preferences
+    @PutMapping("/preferences")
+    public ResponseEntity<?> updateNotificationPreferences(
+            @RequestHeader("Authorization") String token,
+            @RequestBody Map<String, Object> request) {
+        try {
+            String jwt = token.substring(7);
+            String username = jwtUtils.getUserNameFromJwtToken(jwt);
+
+            Optional<User> user = userRepository.findByUsername(username);
+            if (user.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "User not found"));
+            }
+
+            @SuppressWarnings("unchecked")
+            List<String> enabledTypesList = (List<String>) request.get("enabledTypes");
+            if (enabledTypesList == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "enabledTypes field is required"));
+            }
+
+            Long userId = user.get().getId();
+            NotificationPreference preference = preferenceRepository.findByUserId(userId)
+                .orElseGet(() -> {
+                    NotificationPreference newPref = new NotificationPreference(userId);
+                    return preferenceRepository.save(newPref);
+                });
+
+            // Clear and set new preferences
+            preference.getEnabledTypes().clear();
+            for (String typeStr : enabledTypesList) {
+                try {
+                    Notification.NotificationType type = Notification.NotificationType.valueOf(typeStr.toUpperCase());
+                    if (type != Notification.NotificationType.EMERGENCY) {
+                        preference.getEnabledTypes().add(type);
+                    }
+                } catch (IllegalArgumentException ignored) {
+                    // Skip invalid types
+                }
+            }
+
+            preferenceRepository.save(preference);
+
+            return ResponseEntity.ok(Map.of(
+                "message", "Notification preferences updated",
+                "enabledTypes", preference.getEnabledTypes(),
+                "note", "EMERGENCY notifications are always enabled"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Failed to update preferences: " + e.getMessage()));
+        }
     }
 
     public static class NotificationMessage {
