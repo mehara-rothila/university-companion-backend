@@ -6,6 +6,7 @@ import com.smartuniversity.dto.SignupRequest;
 import com.smartuniversity.dto.OAuthUserRequest;
 import com.smartuniversity.dto.ForgotPasswordRequest;
 import com.smartuniversity.dto.ResetPasswordRequest;
+import com.smartuniversity.dto.VerifyEmailRequest;
 import com.smartuniversity.model.User;
 import com.smartuniversity.repository.UserRepository;
 import com.smartuniversity.security.JwtUtils;
@@ -27,10 +28,29 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
+import java.util.Arrays;
+import java.util.List;
+
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    // Allowed university email domains
+    private static final List<String> ALLOWED_EMAIL_DOMAINS = Arrays.asList(
+        "@uom.lk",
+        "@mrt.ac.lk",
+        "@student.mrt.ac.lk"
+    );
+
+    /**
+     * Validate if email belongs to an allowed university domain
+     */
+    private boolean isUniversityEmail(String email) {
+        if (email == null) return false;
+        String lowerEmail = email.toLowerCase();
+        return ALLOWED_EMAIL_DOMAINS.stream().anyMatch(lowerEmail::endsWith);
+    }
     
     @Autowired
     AuthenticationManager authenticationManager;
@@ -89,15 +109,25 @@ public class AuthController {
         }
 
         System.out.println("User found: " + user.getUsername() + " (email: " + user.getEmail() + ")");
-        
+
         // VERIFY PASSWORD - This was missing before!
         if (!encoder.matches(loginRequest.getPassword(), user.getPassword())) {
             System.out.println("Invalid password for user: " + user.getUsername());
             return ResponseEntity.badRequest().body("Error: Invalid username/email or password!");
         }
-        
+
         System.out.println("Password verified successfully for user: " + user.getUsername());
-        
+
+        // Check if email is verified (only for local accounts, not OAuth)
+        if ("local".equals(user.getProvider()) && !user.isEmailVerified()) {
+            System.out.println("Email not verified for user: " + user.getUsername());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(java.util.Map.of(
+                "error", "EMAIL_NOT_VERIFIED",
+                "message", "Please verify your email before logging in.",
+                "email", user.getEmail()
+            ));
+        }
+
         // Generate real JWT token
         String jwt = jwtUtils.generateJwtToken(user.getUsername());
 
@@ -115,35 +145,196 @@ public class AuthController {
     
     @PostMapping("/signup")
     public ResponseEntity<?> registerUser(@Valid @RequestBody SignupRequest signUpRequest) {
+        // Validate university email domain
+        if (!isUniversityEmail(signUpRequest.getEmail())) {
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                "success", false,
+                "message", "Only university email addresses (@uom.lk, @mrt.ac.lk) are allowed to register."
+            ));
+        }
+
         if (userRepository.existsByUsername(signUpRequest.getUsername())) {
-            return ResponseEntity.badRequest()
-                    .body("Error: Username is already taken!");
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                "success", false,
+                "message", "Username is already taken!"
+            ));
         }
-        
+
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
-            return ResponseEntity.badRequest()
-                    .body("Error: Email is already in use!");
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                "success", false,
+                "message", "Email is already in use!"
+            ));
         }
-        
+
         User user = new User(signUpRequest.getFirstName(),
                             signUpRequest.getLastName(),
                             signUpRequest.getEmail(),
                             signUpRequest.getUsername(),
                             encoder.encode(signUpRequest.getPassword()));
-        
+
         user.setStudentId(signUpRequest.getStudentId());
         user.setMajor(signUpRequest.getMajor());
         user.setYear(signUpRequest.getYear());
-        user.setRole(signUpRequest.getRole());
+        // Security: Always set role to STUDENT for self-registration
+        // Admin/Faculty roles should only be assigned by existing admins
+        user.setRole(UserRole.STUDENT);
+        // Email verification required
+        user.setEmailVerified(false);
         if (signUpRequest.getPreferences() != null) {
             user.setPreferences(signUpRequest.getPreferences());
         }
-        
+
+        // Generate and send verification OTP
+        String otp = generateOTP();
+        System.out.println("========================================");
+        System.out.println("Generated Email Verification OTP for: " + user.getEmail());
+        System.out.println("OTP CODE: " + otp);
+        System.out.println("========================================");
+
+        user.setEmailVerificationOtp(encoder.encode(otp));
+        user.setEmailVerificationOtpExpiry(LocalDateTime.now().plusHours(1));
+
         userRepository.save(user);
-        
-        return ResponseEntity.ok("User registered successfully!");
+
+        // Send verification email
+        try {
+            emailService.sendEmailVerificationOTP(user.getEmail(), otp, user.getFirstName());
+            System.out.println("Verification email sent to: " + user.getEmail());
+        } catch (Exception e) {
+            System.err.println("Failed to send verification email: " + e.getMessage());
+            // User is saved but email failed - they can request resend
+        }
+
+        return ResponseEntity.ok(java.util.Map.of(
+            "success", true,
+            "message", "Registration successful! Please check your email for the verification code.",
+            "email", user.getEmail()
+        ));
     }
-    
+
+    /**
+     * Verify email with OTP
+     */
+    @PostMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        System.out.println("=== EMAIL VERIFICATION REQUEST ===");
+        System.out.println("Email: " + request.getEmail());
+
+        User user = userRepository.findByEmail(request.getEmail()).orElse(null);
+
+        if (user == null) {
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                "success", false,
+                "message", "User not found with this email."
+            ));
+        }
+
+        if (user.isEmailVerified()) {
+            return ResponseEntity.ok(java.util.Map.of(
+                "success", true,
+                "message", "Email is already verified. You can login now."
+            ));
+        }
+
+        if (user.getEmailVerificationOtp() == null || user.getEmailVerificationOtpExpiry() == null) {
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                "success", false,
+                "message", "No verification code found. Please request a new one."
+            ));
+        }
+
+        // Check if OTP has expired
+        if (user.getEmailVerificationOtpExpiry().isBefore(LocalDateTime.now())) {
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                "success", false,
+                "message", "Verification code has expired. Please request a new one."
+            ));
+        }
+
+        // Verify OTP
+        if (!encoder.matches(request.getOtp(), user.getEmailVerificationOtp())) {
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                "success", false,
+                "message", "Invalid verification code. Please check and try again."
+            ));
+        }
+
+        // Mark email as verified
+        user.setEmailVerified(true);
+        user.setEmailVerificationOtp(null);
+        user.setEmailVerificationOtpExpiry(null);
+        userRepository.save(user);
+
+        System.out.println("Email verified successfully for: " + user.getEmail());
+
+        return ResponseEntity.ok(java.util.Map.of(
+            "success", true,
+            "message", "Email verified successfully! You can now login."
+        ));
+    }
+
+    /**
+     * Resend email verification OTP
+     */
+    @PostMapping("/resend-verification")
+    public ResponseEntity<?> resendVerification(@RequestBody java.util.Map<String, String> request) {
+        String email = request.get("email");
+        System.out.println("=== RESEND VERIFICATION REQUEST ===");
+        System.out.println("Email: " + email);
+
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                "success", false,
+                "message", "Email is required."
+            ));
+        }
+
+        User user = userRepository.findByEmail(email).orElse(null);
+
+        if (user == null) {
+            // Don't reveal if user exists
+            return ResponseEntity.ok(java.util.Map.of(
+                "success", true,
+                "message", "If an account with this email exists, a verification code has been sent."
+            ));
+        }
+
+        if (user.isEmailVerified()) {
+            return ResponseEntity.ok(java.util.Map.of(
+                "success", true,
+                "message", "Email is already verified. You can login now."
+            ));
+        }
+
+        // Generate new OTP
+        String otp = generateOTP();
+        System.out.println("========================================");
+        System.out.println("Resending Email Verification OTP for: " + user.getEmail());
+        System.out.println("OTP CODE: " + otp);
+        System.out.println("========================================");
+
+        user.setEmailVerificationOtp(encoder.encode(otp));
+        user.setEmailVerificationOtpExpiry(LocalDateTime.now().plusHours(1));
+        userRepository.save(user);
+
+        try {
+            emailService.sendEmailVerificationOTP(user.getEmail(), otp, user.getFirstName());
+            System.out.println("Verification email resent to: " + user.getEmail());
+        } catch (Exception e) {
+            System.err.println("Failed to resend verification email: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(java.util.Map.of(
+                "success", false,
+                "message", "Failed to send email. Please try again later."
+            ));
+        }
+
+        return ResponseEntity.ok(java.util.Map.of(
+            "success", true,
+            "message", "Verification code sent! Please check your email."
+        ));
+    }
+
     @PostMapping("/oauth/register")
     public ResponseEntity<?> registerOrLoginOAuthUser(@Valid @RequestBody OAuthUserRequest oauthRequest) {
         System.out.println("=== OAUTH LOGIN/REGISTRATION REQUEST ===");
@@ -166,6 +357,15 @@ public class AuthController {
                 System.out.println("Updated existing local account to OAuth account");
             }
         } else {
+            // Validate university email domain for NEW OAuth users
+            if (!isUniversityEmail(oauthRequest.getEmail())) {
+                System.out.println("OAuth registration rejected - non-university email: " + oauthRequest.getEmail());
+                return ResponseEntity.badRequest().body(java.util.Map.of(
+                    "error", "Only university email addresses (@uom.lk, @mrt.ac.lk) are allowed to register.",
+                    "message", "Please sign in with your university Google account."
+                ));
+            }
+
             // Create new OAuth user
             System.out.println("Creating new OAuth user");
 
@@ -189,8 +389,11 @@ public class AuthController {
             user.setProvider(oauthRequest.getProvider());
             user.setProviderId(oauthRequest.getProviderId());
             user.setImageUrl(oauthRequest.getImageUrl());
-            user.setRole(oauthRequest.getRole());
+            // Security: Always set role to STUDENT for self-registration
+            user.setRole(UserRole.STUDENT);
             user.setEnabled(true);
+            // OAuth providers (Google) already verify email
+            user.setEmailVerified(true);
 
             userRepository.save(user);
             System.out.println("New OAuth user created with username: " + username);
