@@ -7,7 +7,17 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
@@ -66,7 +76,10 @@ public class ImageUploadController {
     }
 
     @GetMapping("/image/serve")
-    public ResponseEntity<?> serveImage(@RequestParam("url") String s3Url) {
+    public ResponseEntity<?> serveImage(
+            @RequestParam("url") String s3Url,
+            @RequestParam(value = "quality", required = false, defaultValue = "medium") String quality,
+            @RequestParam(value = "maxWidth", required = false) Integer maxWidth) {
         try {
             // Extract filename from S3 URL
             String fileName = s3Service.extractFileNameFromUrl(s3Url);
@@ -79,20 +92,147 @@ public class ImageUploadController {
             
             // Determine content type based on file extension
             String contentType = "image/jpeg"; // default
-            if (fileName.toLowerCase().endsWith(".png")) {
+            boolean isPng = fileName.toLowerCase().endsWith(".png");
+            boolean isGif = fileName.toLowerCase().endsWith(".gif");
+            boolean isWebp = fileName.toLowerCase().endsWith(".webp");
+            
+            if (isPng) {
                 contentType = "image/png";
-            } else if (fileName.toLowerCase().endsWith(".gif")) {
+            } else if (isGif) {
                 contentType = "image/gif";
-            } else if (fileName.toLowerCase().endsWith(".webp")) {
+            } else if (isWebp) {
                 contentType = "image/webp";
+            }
+            
+            // Apply quality/size optimization for JPEG/PNG (skip GIF to preserve animation)
+            if (!isGif) {
+                imageBytes = optimizeImage(imageBytes, quality, maxWidth, isPng);
+                // Convert PNG to JPEG for better compression (except if transparency needed)
+                if (!isPng) {
+                    contentType = "image/jpeg";
+                }
             }
             
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(contentType))
+                    .header("Cache-Control", "public, max-age=86400") // Cache for 24 hours
                     .body(imageBytes);
                     
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to serve image: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Optimize image quality and size
+     * @param imageBytes Original image bytes
+     * @param quality "low", "medium", "high", or "original"
+     * @param maxWidth Maximum width in pixels (null for no resize)
+     * @param keepPng Whether to keep PNG format
+     * @return Optimized image bytes
+     */
+    private byte[] optimizeImage(byte[] imageBytes, String quality, Integer maxWidth, boolean keepPng) {
+        try {
+            // Read original image
+            BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(imageBytes));
+            if (originalImage == null) {
+                return imageBytes; // Return original if can't read
+            }
+            
+            // Determine quality factor
+            float qualityFactor;
+            int defaultMaxWidth;
+            switch (quality.toLowerCase()) {
+                case "low":
+                    qualityFactor = 0.3f;
+                    defaultMaxWidth = 400;
+                    break;
+                case "medium":
+                    qualityFactor = 0.5f;
+                    defaultMaxWidth = 800;
+                    break;
+                case "high":
+                    qualityFactor = 0.75f;
+                    defaultMaxWidth = 1200;
+                    break;
+                case "original":
+                    return imageBytes; // No optimization
+                default:
+                    qualityFactor = 0.5f;
+                    defaultMaxWidth = 800;
+            }
+            
+            // Use provided maxWidth or default based on quality
+            int targetMaxWidth = maxWidth != null ? maxWidth : defaultMaxWidth;
+            
+            // Resize if needed
+            BufferedImage resizedImage = originalImage;
+            int originalWidth = originalImage.getWidth();
+            int originalHeight = originalImage.getHeight();
+            
+            if (originalWidth > targetMaxWidth) {
+                double ratio = (double) targetMaxWidth / originalWidth;
+                int newWidth = targetMaxWidth;
+                int newHeight = (int) (originalHeight * ratio);
+                
+                resizedImage = new BufferedImage(newWidth, newHeight, 
+                    keepPng ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB);
+                Graphics2D g2d = resizedImage.createGraphics();
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                
+                if (!keepPng) {
+                    g2d.setColor(Color.WHITE);
+                    g2d.fillRect(0, 0, newWidth, newHeight);
+                }
+                g2d.drawImage(originalImage, 0, 0, newWidth, newHeight, null);
+                g2d.dispose();
+            }
+            
+            // Compress and output
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            
+            if (keepPng) {
+                // PNG compression (lossless, but resize helps)
+                ImageIO.write(resizedImage, "png", outputStream);
+            } else {
+                // JPEG compression with quality control
+                Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
+                if (!writers.hasNext()) {
+                    return imageBytes;
+                }
+                
+                ImageWriter writer = writers.next();
+                ImageOutputStream ios = ImageIO.createImageOutputStream(outputStream);
+                writer.setOutput(ios);
+                
+                ImageWriteParam param = writer.getDefaultWriteParam();
+                param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                param.setCompressionQuality(qualityFactor);
+                
+                // Convert to RGB if needed (remove alpha channel for JPEG)
+                BufferedImage rgbImage = resizedImage;
+                if (resizedImage.getType() == BufferedImage.TYPE_INT_ARGB) {
+                    rgbImage = new BufferedImage(resizedImage.getWidth(), resizedImage.getHeight(), BufferedImage.TYPE_INT_RGB);
+                    Graphics2D g = rgbImage.createGraphics();
+                    g.setColor(Color.WHITE);
+                    g.fillRect(0, 0, rgbImage.getWidth(), rgbImage.getHeight());
+                    g.drawImage(resizedImage, 0, 0, null);
+                    g.dispose();
+                }
+                
+                writer.write(null, new IIOImage(rgbImage, null, null), param);
+                writer.dispose();
+                ios.close();
+            }
+            
+            return outputStream.toByteArray();
+            
+        } catch (Exception e) {
+            // If optimization fails, return original
+            System.err.println("Image optimization failed: " + e.getMessage());
+            return imageBytes;
         }
     }
 
