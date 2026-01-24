@@ -121,6 +121,13 @@
             <version>2.15.1</version>
         </dependency>
 
+        <!-- Stripe Java SDK -->
+        <dependency>
+            <groupId>com.stripe</groupId>
+            <artifactId>stripe-java</artifactId>
+            <version>24.0.0</version>
+        </dependency>
+
         <!-- Flyway for database migrations -->
         <dependency>
             <groupId>org.flywaydb</groupId>
