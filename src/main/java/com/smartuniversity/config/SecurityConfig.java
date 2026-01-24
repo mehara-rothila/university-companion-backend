@@ -52,7 +52,7 @@ public class SecurityConfig {
                 // Public endpoints - Guest access for approved content
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/setup/**").permitAll()
-                .requestMatchers("/api/health/**").permitAll()
+                .requestMatchers("/health", "/api/health/**", "/api/status").permitAll()
                 .requestMatchers("/ws/**").permitAll() // WebSocket endpoints
                 .requestMatchers("/api/upload/**").permitAll() // Image serving endpoints
                 .requestMatchers("/api/events/approved", "/api/events/upcoming").permitAll()
