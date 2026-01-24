@@ -7,6 +7,7 @@ import com.smartuniversity.service.PaymentService;
 import com.smartuniversity.util.AuthUtils;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -101,5 +102,78 @@ public class PaymentController {
             "order_id", order_id != null ? order_id : "",
             "message", "Payment was cancelled by user"
         ));
+    }
+
+    @GetMapping(value = "/checkout", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> paymentCheckout(
+            @RequestParam String orderId,
+            @RequestParam String paymentUrl,
+            @RequestParam String merchant_id,
+            @RequestParam String return_url,
+            @RequestParam String cancel_url,
+            @RequestParam String notify_url,
+            @RequestParam String items,
+            @RequestParam String currency,
+            @RequestParam String amount,
+            @RequestParam String first_name,
+            @RequestParam String last_name,
+            @RequestParam String email,
+            @RequestParam String phone,
+            @RequestParam String address,
+            @RequestParam String city,
+            @RequestParam String country,
+            @RequestParam String hash,
+            @RequestParam(required = false) String custom_1,
+            @RequestParam(required = false) String custom_2) {
+
+        System.out.println("=== PAYMENT CHECKOUT REDIRECT ===");
+        System.out.println("Order ID: " + orderId);
+        System.out.println("Payment URL: " + paymentUrl);
+
+        // Build auto-submitting HTML form
+        StringBuilder html = new StringBuilder();
+        html.append("<!DOCTYPE html>");
+        html.append("<html><head><title>Redirecting to Payment...</title></head>");
+        html.append("<body>");
+        html.append("<h2 style='text-align:center;margin-top:50px;'>Redirecting to PayHere...</h2>");
+        html.append("<p style='text-align:center;'>Please wait while we redirect you to the payment gateway.</p>");
+        html.append("<form id='payhere_form' method='POST' action='").append(escapeHtml(paymentUrl)).append("'>");
+        html.append("<input type='hidden' name='merchant_id' value='").append(escapeHtml(merchant_id)).append("'>");
+        html.append("<input type='hidden' name='return_url' value='").append(escapeHtml(return_url)).append("'>");
+        html.append("<input type='hidden' name='cancel_url' value='").append(escapeHtml(cancel_url)).append("'>");
+        html.append("<input type='hidden' name='notify_url' value='").append(escapeHtml(notify_url)).append("'>");
+        html.append("<input type='hidden' name='order_id' value='").append(escapeHtml(orderId)).append("'>");
+        html.append("<input type='hidden' name='items' value='").append(escapeHtml(items)).append("'>");
+        html.append("<input type='hidden' name='currency' value='").append(escapeHtml(currency)).append("'>");
+        html.append("<input type='hidden' name='amount' value='").append(escapeHtml(amount)).append("'>");
+        html.append("<input type='hidden' name='first_name' value='").append(escapeHtml(first_name)).append("'>");
+        html.append("<input type='hidden' name='last_name' value='").append(escapeHtml(last_name)).append("'>");
+        html.append("<input type='hidden' name='email' value='").append(escapeHtml(email)).append("'>");
+        html.append("<input type='hidden' name='phone' value='").append(escapeHtml(phone)).append("'>");
+        html.append("<input type='hidden' name='address' value='").append(escapeHtml(address)).append("'>");
+        html.append("<input type='hidden' name='city' value='").append(escapeHtml(city)).append("'>");
+        html.append("<input type='hidden' name='country' value='").append(escapeHtml(country)).append("'>");
+        html.append("<input type='hidden' name='hash' value='").append(escapeHtml(hash)).append("'>");
+        if (custom_1 != null) {
+            html.append("<input type='hidden' name='custom_1' value='").append(escapeHtml(custom_1)).append("'>");
+        }
+        if (custom_2 != null) {
+            html.append("<input type='hidden' name='custom_2' value='").append(escapeHtml(custom_2)).append("'>");
+        }
+        html.append("</form>");
+        html.append("<script>document.getElementById('payhere_form').submit();</script>");
+        html.append("</body></html>");
+
+        return ResponseEntity.ok(html.toString());
+    }
+
+    private String escapeHtml(String input) {
+        if (input == null) return "";
+        return input
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
+            .replace("'", "&#39;");
     }
 }
