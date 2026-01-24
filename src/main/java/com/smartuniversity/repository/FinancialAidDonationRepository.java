@@ -28,4 +28,8 @@ public interface FinancialAidDonationRepository extends JpaRepository<FinancialA
     
     @Query("SELECT d FROM FinancialAidDonation d WHERE d.financialAid = :financialAid AND d.status = 'COMPLETED' ORDER BY d.createdAt DESC")
     List<FinancialAidDonation> findCompletedDonationsForFinancialAid(@Param("financialAid") FinancialAid financialAid);
+
+    List<FinancialAidDonation> findByTransactionIdContaining(String transactionId);
+
+    FinancialAidDonation findByTransactionId(String transactionId);
 }

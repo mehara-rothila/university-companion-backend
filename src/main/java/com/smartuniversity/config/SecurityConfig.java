@@ -62,6 +62,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/competitions/approved").permitAll()
                 .requestMatchers("/api/competitions/{id}").permitAll()
                 .requestMatchers("/api/financial-aid/donations/eligible").permitAll()
+                .requestMatchers("/api/payment/webhook").permitAll() // Payment gateway webhook
+                .requestMatchers("/api/payment/callback").permitAll() // Payment callback
+                .requestMatchers("/api/payment/cancel").permitAll() // Payment cancel callback
                 .requestMatchers("/api/weather/current").permitAll()
                 .requestMatchers("/api/emergency/active").permitAll() // Active emergency notifications - public
 
