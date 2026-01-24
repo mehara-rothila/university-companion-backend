@@ -65,6 +65,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/payment/webhook").permitAll() // Payment gateway webhook
                 .requestMatchers("/api/payment/callback").permitAll() // Payment callback
                 .requestMatchers("/api/payment/cancel").permitAll() // Payment cancel callback
+                .requestMatchers("/api/payment/checkout").permitAll() // Payment checkout redirect
                 .requestMatchers("/api/weather/current").permitAll()
                 .requestMatchers("/api/emergency/active").permitAll() // Active emergency notifications - public
 
