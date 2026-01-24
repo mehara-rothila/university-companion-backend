@@ -66,7 +66,7 @@ public class PaymentService {
             donation.setTransactionId(transactionRef);
             donationRepository.save(donation);
 
-            // Build PayHere checkout URL with parameters
+            // Build PayHere payment data for form POST
             String merchantId = paymentConfig.getMerchantId();
             String amountFormatted = request.getAmount().setScale(2, java.math.RoundingMode.HALF_UP).toString();
             String currency = "LKR";
@@ -76,7 +76,7 @@ public class PaymentService {
             String firstName = donor != null && donor.getFirstName() != null ? donor.getFirstName() : (request.getDonorName() != null ? request.getDonorName() : "Anonymous");
             String lastName = donor != null && donor.getLastName() != null ? donor.getLastName() : "Donor";
             String email = donor != null && donor.getEmail() != null ? donor.getEmail() : (request.getDonorEmail() != null ? request.getDonorEmail() : "donor@university.edu");
-            String phone = "";
+            String phone = "0770000000";
             String address = "University Campus";
             String city = "Colombo";
             String country = "Sri Lanka";
@@ -85,28 +85,34 @@ public class PaymentService {
             // Generate PayHere hash (MD5 format)
             String hash = generatePayHereHash(merchantId, orderId, amountFormatted, currency);
 
-            // Build the PayHere checkout URL with all parameters
-            StringBuilder paymentUrl = new StringBuilder(paymentConfig.getBaseUrl());
-            paymentUrl.append("?merchant_id=").append(urlEncode(merchantId));
-            paymentUrl.append("&return_url=").append(urlEncode(returnUrl));
-            paymentUrl.append("&cancel_url=").append(urlEncode(cancelUrl));
-            paymentUrl.append("&notify_url=").append(urlEncode(notifyUrl));
-            paymentUrl.append("&order_id=").append(urlEncode(orderId));
-            paymentUrl.append("&items=").append(urlEncode(items));
-            paymentUrl.append("&currency=").append(urlEncode(currency));
-            paymentUrl.append("&amount=").append(urlEncode(amountFormatted));
-            paymentUrl.append("&first_name=").append(urlEncode(firstName));
-            paymentUrl.append("&last_name=").append(urlEncode(lastName));
-            paymentUrl.append("&email=").append(urlEncode(email));
-            paymentUrl.append("&phone=").append(urlEncode(phone));
-            paymentUrl.append("&address=").append(urlEncode(address));
-            paymentUrl.append("&city=").append(urlEncode(city));
-            paymentUrl.append("&country=").append(urlEncode(country));
-            paymentUrl.append("&hash=").append(urlEncode(hash));
-            paymentUrl.append("&custom_1=").append(urlEncode(transactionRef));
-            paymentUrl.append("&custom_2=").append(urlEncode(String.valueOf(donation.getId())));
+            // Build payment form data map
+            Map<String, String> paymentData = new LinkedHashMap<>();
+            paymentData.put("merchant_id", merchantId);
+            paymentData.put("return_url", returnUrl);
+            paymentData.put("cancel_url", cancelUrl);
+            paymentData.put("notify_url", notifyUrl);
+            paymentData.put("order_id", orderId);
+            paymentData.put("items", items);
+            paymentData.put("currency", currency);
+            paymentData.put("amount", amountFormatted);
+            paymentData.put("first_name", firstName);
+            paymentData.put("last_name", lastName);
+            paymentData.put("email", email);
+            paymentData.put("phone", phone);
+            paymentData.put("address", address);
+            paymentData.put("city", city);
+            paymentData.put("country", country);
+            paymentData.put("hash", hash);
+            paymentData.put("custom_1", transactionRef);
+            paymentData.put("custom_2", String.valueOf(donation.getId()));
 
-            return PaymentInitiateResponse.success(paymentUrl.toString(), orderId, transactionRef);
+            // Return checkout URL and form data
+            return PaymentInitiateResponse.successWithFormData(
+                paymentConfig.getBaseUrl(),
+                orderId,
+                transactionRef,
+                paymentData
+            );
 
         } catch (Exception e) {
             System.err.println("Payment initiation error: " + e.getMessage());

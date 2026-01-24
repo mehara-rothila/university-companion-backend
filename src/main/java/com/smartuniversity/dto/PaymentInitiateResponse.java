@@ -1,5 +1,7 @@
 package com.smartuniversity.dto;
 
+import java.util.Map;
+
 public class PaymentInitiateResponse {
 
     private boolean success;
@@ -8,6 +10,7 @@ public class PaymentInitiateResponse {
     private String transactionRef;
     private String message;
     private String errorCode;
+    private Map<String, String> formData;
 
     public PaymentInitiateResponse() {}
 
@@ -22,6 +25,17 @@ public class PaymentInitiateResponse {
         response.setPaymentUrl(paymentUrl);
         response.setOrderId(orderId);
         response.setTransactionRef(transactionRef);
+        response.setMessage("Payment initiated successfully");
+        return response;
+    }
+
+    public static PaymentInitiateResponse successWithFormData(String paymentUrl, String orderId, String transactionRef, Map<String, String> formData) {
+        PaymentInitiateResponse response = new PaymentInitiateResponse();
+        response.setSuccess(true);
+        response.setPaymentUrl(paymentUrl);
+        response.setOrderId(orderId);
+        response.setTransactionRef(transactionRef);
+        response.setFormData(formData);
         response.setMessage("Payment initiated successfully");
         return response;
     }
@@ -80,5 +94,13 @@ public class PaymentInitiateResponse {
 
     public void setErrorCode(String errorCode) {
         this.errorCode = errorCode;
+    }
+
+    public Map<String, String> getFormData() {
+        return formData;
+    }
+
+    public void setFormData(Map<String, String> formData) {
+        this.formData = formData;
     }
 }
