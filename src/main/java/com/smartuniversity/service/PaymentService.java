@@ -66,66 +66,47 @@ public class PaymentService {
             donation.setTransactionId(transactionRef);
             donationRepository.save(donation);
 
-            // Prepare payment request to Athena gateway
-            Map<String, Object> paymentData = new LinkedHashMap<>();
-            paymentData.put("merchant_id", paymentConfig.getMerchantId());
-            paymentData.put("order_id", orderId);
-            paymentData.put("amount", request.getAmount().setScale(2).toString());
-            paymentData.put("currency", "LKR");
-            paymentData.put("return_url", paymentConfig.getReturnUrl() + "?order_id=" + orderId);
-            paymentData.put("cancel_url", paymentConfig.getCancelUrl() + "?order_id=" + orderId);
-            paymentData.put("notify_url", paymentConfig.getNotifyUrl());
-            paymentData.put("first_name", donor != null ? donor.getFirstName() : (request.getDonorName() != null ? request.getDonorName() : "Anonymous"));
-            paymentData.put("last_name", donor != null ? donor.getLastName() : "Donor");
-            paymentData.put("email", donor != null ? donor.getEmail() : (request.getDonorEmail() != null ? request.getDonorEmail() : "donor@university.edu"));
-            paymentData.put("phone", "");
-            paymentData.put("address", "University Campus");
-            paymentData.put("city", "Colombo");
-            paymentData.put("country", "Sri Lanka");
-            paymentData.put("items", "Donation for Financial Aid #" + financialAid.getId());
-            paymentData.put("custom_1", transactionRef);
-            paymentData.put("custom_2", String.valueOf(donation.getId()));
+            // Build PayHere checkout URL with parameters
+            String merchantId = paymentConfig.getMerchantId();
+            String amountFormatted = request.getAmount().setScale(2, java.math.RoundingMode.HALF_UP).toString();
+            String currency = "LKR";
+            String returnUrl = paymentConfig.getReturnUrl() + "?order_id=" + orderId;
+            String cancelUrl = paymentConfig.getCancelUrl() + "?order_id=" + orderId;
+            String notifyUrl = paymentConfig.getNotifyUrl();
+            String firstName = donor != null && donor.getFirstName() != null ? donor.getFirstName() : (request.getDonorName() != null ? request.getDonorName() : "Anonymous");
+            String lastName = donor != null && donor.getLastName() != null ? donor.getLastName() : "Donor";
+            String email = donor != null && donor.getEmail() != null ? donor.getEmail() : (request.getDonorEmail() != null ? request.getDonorEmail() : "donor@university.edu");
+            String phone = "";
+            String address = "University Campus";
+            String city = "Colombo";
+            String country = "Sri Lanka";
+            String items = "Donation for Financial Aid #" + financialAid.getId();
 
-            // Generate hash for security
-            String hash = generateHash(paymentData);
-            paymentData.put("hash", hash);
+            // Generate PayHere hash (MD5 format)
+            String hash = generatePayHereHash(merchantId, orderId, amountFormatted, currency);
 
-            // Call Athena payment gateway
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + paymentConfig.getMerchantSecret());
+            // Build the PayHere checkout URL with all parameters
+            StringBuilder paymentUrl = new StringBuilder(paymentConfig.getBaseUrl());
+            paymentUrl.append("?merchant_id=").append(urlEncode(merchantId));
+            paymentUrl.append("&return_url=").append(urlEncode(returnUrl));
+            paymentUrl.append("&cancel_url=").append(urlEncode(cancelUrl));
+            paymentUrl.append("&notify_url=").append(urlEncode(notifyUrl));
+            paymentUrl.append("&order_id=").append(urlEncode(orderId));
+            paymentUrl.append("&items=").append(urlEncode(items));
+            paymentUrl.append("&currency=").append(urlEncode(currency));
+            paymentUrl.append("&amount=").append(urlEncode(amountFormatted));
+            paymentUrl.append("&first_name=").append(urlEncode(firstName));
+            paymentUrl.append("&last_name=").append(urlEncode(lastName));
+            paymentUrl.append("&email=").append(urlEncode(email));
+            paymentUrl.append("&phone=").append(urlEncode(phone));
+            paymentUrl.append("&address=").append(urlEncode(address));
+            paymentUrl.append("&city=").append(urlEncode(city));
+            paymentUrl.append("&country=").append(urlEncode(country));
+            paymentUrl.append("&hash=").append(urlEncode(hash));
+            paymentUrl.append("&custom_1=").append(urlEncode(transactionRef));
+            paymentUrl.append("&custom_2=").append(urlEncode(String.valueOf(donation.getId())));
 
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(paymentData, headers);
-
-            try {
-                ResponseEntity<Map> response = restTemplate.exchange(
-                    paymentConfig.getBaseUrl() + "/payment/initiate",
-                    HttpMethod.POST,
-                    entity,
-                    Map.class
-                );
-
-                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                    Map<String, Object> responseBody = response.getBody();
-                    String paymentUrl = (String) responseBody.get("payment_url");
-                    if (paymentUrl == null) {
-                        paymentUrl = (String) responseBody.get("redirect_url");
-                    }
-
-                    if (paymentUrl != null) {
-                        return PaymentInitiateResponse.success(paymentUrl, orderId, transactionRef);
-                    }
-                }
-            } catch (Exception e) {
-                System.err.println("Error calling payment gateway: " + e.getMessage());
-                // For sandbox/testing, return a simulated payment URL
-                if (paymentConfig.isSandbox()) {
-                    String sandboxUrl = "https://sandbox.athena.mehara.io/pay/" + orderId;
-                    return PaymentInitiateResponse.success(sandboxUrl, orderId, transactionRef);
-                }
-            }
-
-            return PaymentInitiateResponse.error("Failed to initiate payment", "GATEWAY_ERROR");
+            return PaymentInitiateResponse.success(paymentUrl.toString(), orderId, transactionRef);
 
         } catch (Exception e) {
             System.err.println("Payment initiation error: " + e.getMessage());
@@ -223,6 +204,42 @@ public class PaymentService {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
         String random = String.valueOf((int) (Math.random() * 10000));
         return "ORD-" + timestamp + "-" + random;
+    }
+
+    private String generatePayHereHash(String merchantId, String orderId, String amount, String currency) {
+        try {
+            // PayHere hash format: MD5(merchant_id + order_id + amount + currency + MD5(merchant_secret))
+            String merchantSecretHash = md5(paymentConfig.getMerchantSecret()).toUpperCase();
+            String hashString = merchantId + orderId + amount + currency + merchantSecretHash;
+            return md5(hashString).toUpperCase();
+        } catch (Exception e) {
+            System.err.println("PayHere hash generation error: " + e.getMessage());
+            return "";
+        }
+    }
+
+    private String md5(String input) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
+            byte[] messageDigest = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : messageDigest) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (Exception e) {
+            throw new RuntimeException("MD5 hash error", e);
+        }
+    }
+
+    private String urlEncode(String value) {
+        try {
+            return java.net.URLEncoder.encode(value != null ? value : "", StandardCharsets.UTF_8.toString());
+        } catch (Exception e) {
+            return value != null ? value : "";
+        }
     }
 
     private String generateHash(Map<String, Object> data) {
