@@ -22,6 +22,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
+import org.springframework.web.filter.CorsFilter;
+import org.springframework.core.Ordered;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -49,6 +53,8 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // Allow preflight OPTIONS requests for CORS
+                .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                 // Public endpoints - Guest access for approved content
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/setup/**").permitAll()
@@ -65,6 +71,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/payment/**").permitAll() // Payment endpoints (Stripe)
                 .requestMatchers("/api/weather/current").permitAll()
                 .requestMatchers("/api/emergency/active").permitAll() // Active emergency notifications - public
+                .requestMatchers("/api/chatbot/**").permitAll() // Chatbot endpoints - public access
+                .requestMatchers("/api/tokens/**").permitAll() // Token usage endpoints - public access
 
                 // Admin-only endpoints
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
@@ -85,20 +93,29 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
+
         // Parse allowed origins from application.properties
         List<String> origins = Arrays.asList(allowedOrigins.split(","));
-        
+
         // Use allowedOriginPatterns to support wildcards like *.netlify.app
         configuration.setAllowedOriginPatterns(origins);
-        
+
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    @Bean
+    public FilterRegistrationBean<CorsFilter> corsFilterRegistrationBean() {
+        FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(
+            new CorsFilter(corsConfigurationSource())
+        );
+        bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return bean;
     }
 }
