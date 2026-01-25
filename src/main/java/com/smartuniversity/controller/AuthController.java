@@ -31,7 +31,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import java.util.Arrays;
 import java.util.List;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
