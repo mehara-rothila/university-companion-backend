@@ -128,12 +128,6 @@
             <version>24.0.0</version>
         </dependency>
 
-        <!-- Flyway for database migrations -->
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
-        </dependency>
-
     </dependencies>
 
     <build>
