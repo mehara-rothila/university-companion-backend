@@ -80,11 +80,25 @@ public class EmergencyNotificationController {
 
     @GetMapping("/active")
     public ResponseEntity<List<EmergencyNotificationResponse>> getActiveEmergencies(
-            @RequestHeader("Authorization") String token) {
+            @RequestHeader(value = "Authorization", required = false) String token) {
         try {
+            // If no token provided, return all active emergencies without user-specific data
+            if (token == null || token.isEmpty()) {
+                List<Notification> emergencies = notificationRepository.findActiveEmergencies(LocalDateTime.now());
+                List<EmergencyNotificationResponse> responses = emergencies.stream()
+                        .map(emergency -> buildEmergencyResponse(emergency, null))
+                        .collect(Collectors.toList());
+                return ResponseEntity.ok(responses);
+            }
+
             Optional<User> user = getUserFromToken(token);
             if (user.isEmpty()) {
-                return ResponseEntity.badRequest().build();
+                // Token invalid, still return public emergencies
+                List<Notification> emergencies = notificationRepository.findActiveEmergencies(LocalDateTime.now());
+                List<EmergencyNotificationResponse> responses = emergencies.stream()
+                        .map(emergency -> buildEmergencyResponse(emergency, null))
+                        .collect(Collectors.toList());
+                return ResponseEntity.ok(responses);
             }
 
             List<Notification> emergencies = notificationRepository.findEmergenciesForUser(user.get().getId(), LocalDateTime.now());
@@ -95,7 +109,7 @@ public class EmergencyNotificationController {
 
             return ResponseEntity.ok(responses);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.ok(List.of()); // Return empty list on error instead of 400
         }
     }
 
