@@ -68,21 +68,32 @@ public class SecurityConfig {
                 .requestMatchers("/api/competitions/approved").permitAll()
                 .requestMatchers("/api/competitions/{id}").permitAll()
                 .requestMatchers("/api/financial-aid/donations/eligible").permitAll()
-                .requestMatchers("/api/payment/**").permitAll() // Payment endpoints (Stripe)
+                .requestMatchers("/api/payment/webhook").permitAll() // Stripe webhook (signature-verified)
+                .requestMatchers("/api/payment/**").authenticated() // Payment endpoints require auth
                 .requestMatchers("/api/weather/current").permitAll()
                 .requestMatchers("/api/emergency/active").permitAll() // Active emergency notifications - public
                 .requestMatchers("/api/chatbot/**").permitAll() // Chatbot endpoints - public access
-                .requestMatchers("/api/tokens/**").permitAll() // Token usage endpoints - public access
+                .requestMatchers("/api/tokens/**").authenticated() // Token endpoints require auth
 
                 // Admin-only endpoints
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/events/pending").hasRole("ADMIN")
-                .requestMatchers("/api/achievements/pending").hasRole("ADMIN")
-                .requestMatchers("/api/competitions/pending").hasRole("ADMIN")
+                .requestMatchers("/api/events/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/achievements/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/competitions/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/lost-found/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/books/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/notifications/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/emergency/**").hasRole("ADMIN") // Other emergency endpoints - admin only
 
                 // Authenticated user endpoints
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setContentType("application/json");
+                    response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                    response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"Authentication required or token expired\"}");
+                })
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
