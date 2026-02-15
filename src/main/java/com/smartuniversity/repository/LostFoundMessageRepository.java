@@ -31,13 +31,21 @@ public interface LostFoundMessageRepository extends JpaRepository<LostFoundMessa
             @Param("conversationId") Long conversationId,
             Pageable pageable);
 
-    // Get last message of a conversation
+    // Get last message of a conversation (using Pageable for portable JPQL)
     @Query("SELECT m FROM LostFoundMessage m " +
            "LEFT JOIN FETCH m.sender " +
            "WHERE m.conversation.id = :conversationId " +
-           "ORDER BY m.sentAt DESC " +
-           "LIMIT 1")
-    LostFoundMessage findLastMessageByConversationId(@Param("conversationId") Long conversationId);
+           "ORDER BY m.sentAt DESC")
+    List<LostFoundMessage> findTopByConversationIdOrderBySentAtDesc(
+            @Param("conversationId") Long conversationId,
+            Pageable pageable);
+
+    // Convenience wrapper
+    default LostFoundMessage findLastMessageByConversationId(Long conversationId) {
+        List<LostFoundMessage> results = findTopByConversationIdOrderBySentAtDesc(
+                conversationId, Pageable.ofSize(1));
+        return results.isEmpty() ? null : results.get(0);
+    }
 
     // Count unread messages for a user in a conversation
     @Query("SELECT COUNT(m) FROM LostFoundMessage m " +
