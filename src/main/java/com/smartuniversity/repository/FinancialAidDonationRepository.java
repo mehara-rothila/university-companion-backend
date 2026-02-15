@@ -32,4 +32,39 @@ public interface FinancialAidDonationRepository extends JpaRepository<FinancialA
     List<FinancialAidDonation> findByTransactionIdContaining(String transactionId);
 
     FinancialAidDonation findByTransactionId(String transactionId);
+
+    // ---- Analytics queries ----
+
+    @Query("SELECT SUM(d.amount) FROM FinancialAidDonation d WHERE d.status = 'COMPLETED'")
+    BigDecimal getTotalCompletedDonationAmount();
+
+    @Query("SELECT COUNT(d) FROM FinancialAidDonation d WHERE d.status = 'COMPLETED'")
+    Long getCompletedDonationCount();
+
+    @Query("SELECT COUNT(DISTINCT d.donor.id) FROM FinancialAidDonation d WHERE d.status = 'COMPLETED'")
+    Long getUniqueDonorCount();
+
+    @Query("SELECT AVG(d.amount) FROM FinancialAidDonation d WHERE d.status = 'COMPLETED'")
+    BigDecimal getAverageDonationAmount();
+
+    @Query("SELECT d.donor.id, d.donor.firstName, d.donor.lastName, d.donor.email, " +
+           "SUM(d.amount), COUNT(d) " +
+           "FROM FinancialAidDonation d WHERE d.status = 'COMPLETED' AND d.isAnonymous = false AND d.donor IS NOT NULL " +
+           "GROUP BY d.donor.id, d.donor.firstName, d.donor.lastName, d.donor.email " +
+           "ORDER BY SUM(d.amount) DESC")
+    List<Object[]> findTopDonors();
+
+    @Query("SELECT d FROM FinancialAidDonation d LEFT JOIN FETCH d.donor LEFT JOIN FETCH d.financialAid " +
+           "WHERE d.status = 'COMPLETED' ORDER BY d.createdAt DESC")
+    List<FinancialAidDonation> findRecentCompletedDonations();
+
+    @Query("SELECT d.financialAid.category, SUM(d.amount), COUNT(d) " +
+           "FROM FinancialAidDonation d WHERE d.status = 'COMPLETED' " +
+           "GROUP BY d.financialAid.category ORDER BY SUM(d.amount) DESC")
+    List<Object[]> getDonationsByCategory();
+
+    @Query("SELECT d.financialAid.aidType, SUM(d.amount), COUNT(d) " +
+           "FROM FinancialAidDonation d WHERE d.status = 'COMPLETED' " +
+           "GROUP BY d.financialAid.aidType ORDER BY SUM(d.amount) DESC")
+    List<Object[]> getDonationsByAidType();
 }
