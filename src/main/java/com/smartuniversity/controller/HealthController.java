@@ -33,7 +33,6 @@ public class HealthController {
         try {
             Connection conn = dataSource.getConnection();
             response.put("database", "CONNECTED");
-            response.put("databaseUrl", conn.getMetaData().getURL());
             conn.close();
             
             // Try to count items
