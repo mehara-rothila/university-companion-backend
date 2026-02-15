@@ -50,13 +50,4 @@ public class TokenScheduler {
         }
     }
 
-    /**
-     * Alternative: Reset tokens at a specific time (e.g., 12:00 AM)
-     * Cron format: second minute hour day month weekday
-     */
-    @Scheduled(cron = "0 0 0 * * ?")  // Every day at 00:00
-    public void resetTokensAtMidnight() {
-        System.out.println("🌙 Midnight token reset triggered...");
-        resetDailyTokensForAllUsers();
-    }
 }
