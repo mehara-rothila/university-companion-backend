@@ -77,6 +77,9 @@ public class AuthController {
         }
 
         String usernameOrEmail = loginRequest.getUsernameOrEmail();
+        if (usernameOrEmail == null || usernameOrEmail.isBlank()) {
+            return ResponseEntity.badRequest().body("Username or email is required");
+        }
         System.out.println("Login request received for: " + usernameOrEmail);
         System.out.println("Password length: " + (loginRequest.getPassword() != null ? loginRequest.getPassword().length() : "null"));
 
@@ -340,6 +343,57 @@ public class AuthController {
         System.out.println("Provider: " + oauthRequest.getProvider());
         System.out.println("Email: " + oauthRequest.getEmail());
 
+        // Verify the OAuth token server-side with Google
+        if ("google".equals(oauthRequest.getProvider())) {
+            try {
+                String tokenInfoUrl = "https://oauth2.googleapis.com/tokeninfo?id_token="
+                    + oauthRequest.getAccessToken();
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection)
+                    new java.net.URL(tokenInfoUrl).openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(5000);
+
+                if (conn.getResponseCode() != 200) {
+                    return ResponseEntity.status(401).body(java.util.Map.of(
+                        "error", "Invalid OAuth token. Authentication failed."
+                    ));
+                }
+
+                String responseBody;
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(conn.getInputStream()))) {
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line);
+                    }
+                    responseBody = sb.toString();
+                }
+
+                // Parse the email from Google's response and verify it matches
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                com.fasterxml.jackson.databind.JsonNode tokenInfo = mapper.readTree(responseBody);
+                String verifiedEmail = tokenInfo.has("email") ? tokenInfo.get("email").asText() : null;
+                boolean emailVerified = tokenInfo.has("email_verified") && "true".equals(tokenInfo.get("email_verified").asText());
+
+                if (verifiedEmail == null || !emailVerified || !verifiedEmail.equalsIgnoreCase(oauthRequest.getEmail())) {
+                    return ResponseEntity.status(401).body(java.util.Map.of(
+                        "error", "OAuth token email does not match the provided email."
+                    ));
+                }
+            } catch (Exception e) {
+                System.err.println("OAuth token verification failed: " + e.getMessage());
+                return ResponseEntity.status(401).body(java.util.Map.of(
+                    "error", "Failed to verify OAuth token."
+                ));
+            }
+        } else {
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                "error", "Unsupported OAuth provider: " + oauthRequest.getProvider()
+            ));
+        }
+
         // Check if user already exists by email
         User user = userRepository.findByEmail(oauthRequest.getEmail()).orElse(null);
 
@@ -347,23 +401,19 @@ public class AuthController {
             // User exists - update OAuth info if needed
             System.out.println("Existing user found: " + user.getUsername());
 
-            // Update provider info if it was previously a local account
-            if ("local".equals(user.getProvider()) && !oauthRequest.getProvider().equals("local")) {
-                user.setProvider(oauthRequest.getProvider());
-                user.setProviderId(oauthRequest.getProviderId());
-                user.setImageUrl(oauthRequest.getImageUrl());
-                userRepository.save(user);
-                System.out.println("Updated existing local account to OAuth account");
+            // If local account exists with the same email, link OAuth without removing password login
+            if ("local".equals(user.getProvider())) {
+                // Keep provider as "local" — user can still log in with password
+                // Just update the profile image if they don't have one
+                if (user.getImageUrl() == null && oauthRequest.getImageUrl() != null) {
+                    user.setImageUrl(oauthRequest.getImageUrl());
+                    userRepository.save(user);
+                }
+                System.out.println("Existing local account found — preserving password login capability");
             }
         } else {
-            // Validate university email domain for NEW OAuth users
-            if (!isUniversityEmail(oauthRequest.getEmail())) {
-                System.out.println("OAuth registration rejected - non-university email: " + oauthRequest.getEmail());
-                return ResponseEntity.badRequest().body(java.util.Map.of(
-                    "error", "Only university email addresses (@uom.lk, @mrt.ac.lk) are allowed to register.",
-                    "message", "Please sign in with your university Google account."
-                ));
-            }
+            // Note: University email restriction removed for OAuth - allow all verified Google accounts
+            System.out.println("OAuth registration for email: " + oauthRequest.getEmail());
 
             // Create new OAuth user
             System.out.println("Creating new OAuth user");
