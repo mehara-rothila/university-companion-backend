@@ -40,7 +40,7 @@ public class FinancialAidController {
     private AuthUtils authUtils;
     
     @GetMapping("/applications")
-    public ResponseEntity<List<FinancialAidResponse>> getAllApplications(
+    public ResponseEntity<?> getAllApplications(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String aidType,
             @RequestParam(required = false) String category,
@@ -73,7 +73,7 @@ public class FinancialAidController {
         } catch (Exception e) {
             System.err.println("Error fetching financial aid applications: " + e.getMessage());
             e.printStackTrace();
-            return ResponseEntity.ok(getMockApplications());
+            return ResponseEntity.internalServerError().body(java.util.Map.of("error", "Failed to load applications"));
         }
     }
     
