@@ -2,9 +2,12 @@ package com.smartuniversity.controller;
 
 import com.smartuniversity.dto.AdminReviewRequest;
 import com.smartuniversity.dto.AdminFinancialAidRequest;
+import com.smartuniversity.dto.DonationAnalyticsResponse;
 import com.smartuniversity.dto.FinancialAidResponse;
 import com.smartuniversity.model.FinancialAid;
+import com.smartuniversity.model.FinancialAidDonation;
 import com.smartuniversity.model.User;
+import com.smartuniversity.repository.FinancialAidDonationRepository;
 import com.smartuniversity.repository.FinancialAidRepository;
 import com.smartuniversity.repository.UserRepository;
 import com.smartuniversity.util.AuthUtils;
@@ -13,7 +16,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +39,9 @@ public class FinancialAidAdminController {
 
     @Autowired
     private AuthUtils authUtils;
+
+    @Autowired
+    private FinancialAidDonationRepository donationRepository;
 
     @Autowired
     private com.smartuniversity.repository.FinancialAidDisbursementRepository disbursementRepository;
@@ -203,6 +212,135 @@ public class FinancialAidAdminController {
         return ResponseEntity.ok(dashboard);
     }
     
+    /**
+     * Get donation analytics for admin dashboard
+     */
+    @GetMapping("/donations/analytics")
+    public ResponseEntity<?> getDonationAnalytics() {
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+            DonationAnalyticsResponse analytics = new DonationAnalyticsResponse();
+
+            // 1. Summary statistics
+            BigDecimal totalDonated = donationRepository.getTotalCompletedDonationAmount();
+            analytics.setTotalDonated(totalDonated != null ? totalDonated : BigDecimal.ZERO);
+
+            Long donationCount = donationRepository.getCompletedDonationCount();
+            analytics.setTotalDonationCount(donationCount != null ? donationCount : 0L);
+
+            Long uniqueDonors = donationRepository.getUniqueDonorCount();
+            analytics.setUniqueDonorCount(uniqueDonors != null ? uniqueDonors : 0L);
+
+            BigDecimal avgDonation = donationRepository.getAverageDonationAmount();
+            analytics.setAverageDonation(avgDonation != null ? avgDonation.setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO);
+
+            // 2. Top donors (limit to 10, excludes anonymous)
+            List<Object[]> topDonorRows = donationRepository.findTopDonors();
+            List<DonationAnalyticsResponse.TopDonorItem> topDonors = topDonorRows.stream()
+                .limit(10)
+                .map(row -> {
+                    DonationAnalyticsResponse.TopDonorItem item = new DonationAnalyticsResponse.TopDonorItem();
+                    item.setDonorId((Long) row[0]);
+                    item.setDonorName(row[1] + " " + row[2]);
+                    item.setEmail((String) row[3]);
+                    item.setTotalAmount((BigDecimal) row[4]);
+                    item.setDonationCount((Long) row[5]);
+                    return item;
+                })
+                .collect(Collectors.toList());
+            analytics.setTopDonors(topDonors);
+
+            // 3. Recent donations (limit to 20)
+            List<FinancialAidDonation> recentDonationEntities = donationRepository.findRecentCompletedDonations();
+            List<DonationAnalyticsResponse.RecentDonationItem> recentDonations = recentDonationEntities.stream()
+                .limit(20)
+                .map(d -> {
+                    DonationAnalyticsResponse.RecentDonationItem item = new DonationAnalyticsResponse.RecentDonationItem();
+                    item.setDonationId(d.getId());
+                    item.setAmount(d.getAmount());
+                    item.setStatus(d.getStatus().toString());
+                    item.setMessage(d.getMessage());
+                    item.setCreatedAt(d.getCreatedAt() != null ? d.getCreatedAt().format(formatter) : null);
+
+                    if (d.isAnonymous() || d.getDonor() == null) {
+                        item.setDonorName("Anonymous");
+                    } else {
+                        item.setDonorName(d.getDonor().getFirstName() + " " + d.getDonor().getLastName());
+                    }
+
+                    if (d.getFinancialAid() != null) {
+                        item.setApplicationTitle(d.getFinancialAid().getTitle());
+                        item.setApplicationId(d.getFinancialAid().getId());
+                        item.setCategory(d.getFinancialAid().getCategory());
+                    }
+
+                    return item;
+                })
+                .collect(Collectors.toList());
+            analytics.setRecentDonations(recentDonations);
+
+            // 4. Donations by category
+            List<Object[]> categoryRows = donationRepository.getDonationsByCategory();
+            List<DonationAnalyticsResponse.CategoryBreakdownItem> categoryItems = categoryRows.stream()
+                .map(row -> {
+                    DonationAnalyticsResponse.CategoryBreakdownItem item = new DonationAnalyticsResponse.CategoryBreakdownItem();
+                    item.setCategory(row[0] != null ? (String) row[0] : "Uncategorized");
+                    item.setTotalAmount((BigDecimal) row[1]);
+                    item.setDonationCount((Long) row[2]);
+                    return item;
+                })
+                .collect(Collectors.toList());
+            analytics.setDonationsByCategory(categoryItems);
+
+            // 5. Donations by aid type
+            List<Object[]> aidTypeRows = donationRepository.getDonationsByAidType();
+            List<DonationAnalyticsResponse.AidTypeBreakdownItem> aidTypeItems = aidTypeRows.stream()
+                .map(row -> {
+                    DonationAnalyticsResponse.AidTypeBreakdownItem item = new DonationAnalyticsResponse.AidTypeBreakdownItem();
+                    item.setAidType(row[0] != null ? row[0].toString() : "OTHER");
+                    item.setTotalAmount((BigDecimal) row[1]);
+                    item.setDonationCount((Long) row[2]);
+                    return item;
+                })
+                .collect(Collectors.toList());
+            analytics.setDonationsByAidType(aidTypeItems);
+
+            // 6. Fundraising progress (donation-eligible apps, sorted by progress descending)
+            List<FinancialAid> donationEligible = financialAidRepository.findByIsDonationEligible(true);
+            List<DonationAnalyticsResponse.FundraisingProgressItem> progressItems = donationEligible.stream()
+                .map(app -> {
+                    DonationAnalyticsResponse.FundraisingProgressItem item = new DonationAnalyticsResponse.FundraisingProgressItem();
+                    item.setApplicationId(app.getId());
+                    item.setTitle(app.getTitle());
+                    item.setCategory(app.getCategory());
+                    item.setAidType(app.getAidType() != null ? app.getAidType().toString() : "OTHER");
+                    item.setRequestedAmount(app.getRequestedAmount());
+                    item.setRaisedAmount(app.getRaisedAmount() != null ? app.getRaisedAmount() : BigDecimal.ZERO);
+                    item.setSupporterCount(app.getSupporterCount() != null ? app.getSupporterCount() : 0);
+
+                    if (app.getRequestedAmount() != null && app.getRequestedAmount().compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal raised = app.getRaisedAmount() != null ? app.getRaisedAmount() : BigDecimal.ZERO;
+                        double pct = raised.divide(app.getRequestedAmount(), 4, RoundingMode.HALF_UP)
+                                           .doubleValue() * 100.0;
+                        item.setProgressPercent(Math.min(pct, 100.0));
+                    } else {
+                        item.setProgressPercent(0.0);
+                    }
+
+                    return item;
+                })
+                .sorted((a, b) -> Double.compare(b.getProgressPercent(), a.getProgressPercent()))
+                .collect(Collectors.toList());
+            analytics.setFundraisingProgress(progressItems);
+
+            return ResponseEntity.ok(analytics);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to load donation analytics: " + e.getMessage()));
+        }
+    }
+
     @GetMapping("/applications/by-urgency/{urgency}")
     public ResponseEntity<List<FinancialAidResponse>> getApplicationsByUrgency(@PathVariable String urgency) {
         try {

@@ -51,29 +51,23 @@ public class NotificationController {
     private JwtUtils jwtUtils;
 
     @PostMapping("/admin/create")
-    // @PreAuthorize("hasRole('ADMIN')") // Commented out for testing
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> createNotification(@Valid @RequestBody NotificationRequest request,
                                                @RequestHeader(value = "Authorization", required = false) String token) {
         try {
-            // For testing purposes, use a default admin user if no token is provided
             Optional<User> adminUser;
             
-            if (token != null && !token.isEmpty() && !token.equals("Bearer ")) {
-                try {
-                    String jwt = token.substring(7);
-                    String username = jwtUtils.getUserNameFromJwtToken(jwt);
-                    adminUser = userRepository.findByUsername(username);
-                } catch (Exception e) {
-                    // If JWT parsing fails, fall back to default admin user
-                    adminUser = userRepository.findAll().stream()
-                        .filter(user -> user.getRole().equals(User.UserRole.ADMIN))
-                        .findFirst();
-                }
-            } else {
-                // Fallback: use the first admin user found for testing
-                adminUser = userRepository.findAll().stream()
-                    .filter(user -> user.getRole().equals(User.UserRole.ADMIN))
-                    .findFirst();
+            if (token == null || !token.startsWith("Bearer ")) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authorization token required"));
+            }
+
+            try {
+                String jwt = token.substring(7);
+                String username = jwtUtils.getUserNameFromJwtToken(jwt);
+                adminUser = userRepository.findByUsername(username)
+                    .filter(user -> user.getRole().equals(User.UserRole.ADMIN));
+            } catch (Exception e) {
+                return ResponseEntity.status(401).body(Map.of("error", "Invalid authorization token"));
             }
             
             if (adminUser.isEmpty()) {
@@ -101,7 +95,7 @@ public class NotificationController {
     }
 
     @GetMapping("/admin/all")
-    // @PreAuthorize("hasRole('ADMIN')") // Commented out for testing
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<NotificationResponse>> getAllNotifications(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -114,7 +108,7 @@ public class NotificationController {
     }
 
     @GetMapping("/admin/my")
-    // @PreAuthorize("hasRole('ADMIN')") // Commented out for testing
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<NotificationResponse>> getMyNotifications(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -184,7 +178,7 @@ public class NotificationController {
     }
 
     @PutMapping("/admin/{id}/toggle")
-    // @PreAuthorize("hasRole('ADMIN')") // Commented out for testing
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> toggleNotification(@PathVariable Long id) {
         try {
             Optional<Notification> notificationOpt = notificationRepository.findById(id);
@@ -203,7 +197,7 @@ public class NotificationController {
     }
 
     @DeleteMapping("/admin/{id}")
-    // @PreAuthorize("hasRole('ADMIN')") // Commented out for testing
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteNotification(@PathVariable Long id) {
         try {
             if (!notificationRepository.existsById(id)) {
@@ -227,7 +221,7 @@ public class NotificationController {
     }
 
     @GetMapping("/admin/users")
-    // @PreAuthorize("hasRole('ADMIN')") // Commented out for testing
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Map<String, Object>>> getAllUsers() {
         try {
             List<User> users = userRepository.findAll();

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartuniversity.dto.WeatherChatResponse;
 import com.smartuniversity.dto.WeatherResponse;
 import com.smartuniversity.exception.TokenExhaustedException;
+import com.smartuniversity.model.TokenTransaction;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -64,6 +65,13 @@ public class GeminiChatService {
 
             // Call Gemini API
             String response = callGeminiAPI(systemPrompt);
+
+            // Consume tokens after successful API call
+            if (userId != null && tokenService != null) {
+                Long estimatedTokens = 1000L;
+                tokenService.consumeTokens(userId, estimatedTokens,
+                    TokenTransaction.TransactionType.CHAT, "Weather chat query");
+            }
 
             // Record request for rate limiting
             recordRequest(userId);
