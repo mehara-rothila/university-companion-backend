@@ -17,11 +17,6 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.net.URL;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -158,6 +153,8 @@ public class GeneralChatbotService {
             }
             return response;
 
+        } catch (TokenExhaustedException e) {
+            throw e; // Re-throw token limit errors with their original message
         } catch (Exception e) {
             e.printStackTrace();
             return ChatbotResponse.error("Failed to get response from AI: " + e.getMessage());
@@ -178,11 +175,8 @@ public class GeneralChatbotService {
             // Download from S3 using credentials
             pdfBytes = s3Service.getFileBytes(s3Key);
         } else {
-            // Fallback to direct URL download for external URLs
-            URL url = new URL(pdfUrl);
-            try (InputStream inputStream = url.openStream()) {
-                pdfBytes = inputStream.readAllBytes();
-            }
+            // Reject external URLs to prevent SSRF attacks
+            throw new IllegalArgumentException("Only files uploaded to our storage are supported");
         }
 
         // Load and extract text from PDF
@@ -213,16 +207,8 @@ public class GeneralChatbotService {
             // Download from S3 using credentials
             imageBytes = s3Service.getFileBytes(s3Key);
         } else {
-            // Fallback to direct URL download for external URLs
-            URL url = new URL(imageUrl);
-            BufferedImage image = ImageIO.read(url);
-            if (image == null) {
-                throw new Exception("Failed to read image from URL");
-            }
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            String format = getImageFormat(imageUrl);
-            ImageIO.write(image, format, baos);
-            imageBytes = baos.toByteArray();
+            // Reject external URLs to prevent SSRF attacks
+            throw new IllegalArgumentException("Only files uploaded to our storage are supported");
         }
 
         // Convert to base64
