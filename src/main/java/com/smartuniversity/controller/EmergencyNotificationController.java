@@ -385,22 +385,13 @@ public class EmergencyNotificationController {
 
     private Optional<User> getAdminFromToken(String token) {
         try {
-            if (token != null && !token.isEmpty() && !token.equals("Bearer ")) {
-                try {
-                    String jwt = token.substring(7);
-                    String username = jwtUtils.getUserNameFromJwtToken(jwt);
-                    Optional<User> user = userRepository.findByUsername(username);
-                    if (user.isPresent() && user.get().getRole().equals(User.UserRole.ADMIN)) {
-                        return user;
-                    }
-                } catch (Exception e) {
-                    // Fall back to first admin
-                }
+            if (token != null && token.startsWith("Bearer ")) {
+                String jwt = token.substring(7);
+                String username = jwtUtils.getUserNameFromJwtToken(jwt);
+                return userRepository.findByUsername(username)
+                        .filter(user -> user.getRole().equals(User.UserRole.ADMIN));
             }
-
-            return userRepository.findAll().stream()
-                    .filter(user -> user.getRole().equals(User.UserRole.ADMIN))
-                    .findFirst();
+            return Optional.empty();
         } catch (Exception e) {
             return Optional.empty();
         }
