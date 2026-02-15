@@ -28,6 +28,9 @@ public class OAuthUserRequest {
 
     private String imageUrl; // Profile picture from OAuth provider
 
+    @NotBlank
+    private String accessToken; // OAuth provider token for server-side verification
+
     private User.UserRole role = User.UserRole.STUDENT;
 
     public OAuthUserRequest() {}
@@ -49,6 +52,9 @@ public class OAuthUserRequest {
 
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
+    public String getAccessToken() { return accessToken; }
+    public void setAccessToken(String accessToken) { this.accessToken = accessToken; }
 
     public User.UserRole getRole() { return role; }
     public void setRole(User.UserRole role) { this.role = role; }
