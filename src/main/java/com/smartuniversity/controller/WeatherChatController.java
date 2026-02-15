@@ -8,11 +8,13 @@ import com.smartuniversity.service.GeminiChatService;
 import com.smartuniversity.service.WeatherService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/weather/chat")
-@CrossOrigin(origins = {"http://localhost:3000", "https://*.netlify.app"})
 public class WeatherChatController {
 
     private final GeminiChatService geminiChatService;
@@ -30,6 +32,11 @@ public class WeatherChatController {
             if (request.getMessage() == null || request.getMessage().trim().isEmpty()) {
                 return ResponseEntity.badRequest()
                         .body(WeatherChatResponse.error("Message cannot be empty"));
+            }
+
+            if (request.getMessage().length() > GeminiChatService.MAX_MESSAGE_LENGTH) {
+                return ResponseEntity.badRequest()
+                        .body(WeatherChatResponse.error("Message too long. Maximum " + GeminiChatService.MAX_MESSAGE_LENGTH + " characters allowed."));
             }
 
             // Get current weather data to provide context to AI

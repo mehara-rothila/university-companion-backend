@@ -31,11 +31,14 @@ public class GeminiChatService {
 
     private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
     private static final int MAX_REQUESTS_PER_HOUR = 10;
+    private static final int MAX_ANONYMOUS_REQUESTS_PER_HOUR = 5;
     private static final long HOUR_IN_MILLIS = 60 * 60 * 1000;
+    public static final int MAX_MESSAGE_LENGTH = 500;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final Map<Long, List<Long>> rateLimitMap = new ConcurrentHashMap<>();
+    private final Map<String, List<Long>> anonymousRateLimitMap = new ConcurrentHashMap<>();
 
     @Autowired
     private TokenService tokenService;
@@ -84,11 +87,19 @@ public class GeminiChatService {
     }
 
     private boolean checkRateLimit(Long userId) {
+        long currentTime = Instant.now().toEpochMilli();
+
         if (userId == null) {
-            return true; // Allow anonymous requests (can be changed)
+            // Rate limit anonymous users using a shared "anonymous" key
+            String anonKey = "anonymous";
+            List<Long> requests = anonymousRateLimitMap.getOrDefault(anonKey, new ArrayList<>());
+            requests = requests.stream()
+                    .filter(timestamp -> currentTime - timestamp < HOUR_IN_MILLIS)
+                    .collect(Collectors.toList());
+            anonymousRateLimitMap.put(anonKey, requests);
+            return requests.size() < MAX_ANONYMOUS_REQUESTS_PER_HOUR;
         }
 
-        long currentTime = Instant.now().toEpochMilli();
         List<Long> requests = rateLimitMap.getOrDefault(userId, new ArrayList<>());
 
         // Remove requests older than 1 hour
@@ -102,11 +113,16 @@ public class GeminiChatService {
     }
 
     private void recordRequest(Long userId) {
+        long currentTime = Instant.now().toEpochMilli();
+
         if (userId == null) {
+            String anonKey = "anonymous";
+            List<Long> requests = anonymousRateLimitMap.getOrDefault(anonKey, new ArrayList<>());
+            requests.add(currentTime);
+            anonymousRateLimitMap.put(anonKey, requests);
             return;
         }
 
-        long currentTime = Instant.now().toEpochMilli();
         List<Long> requests = rateLimitMap.getOrDefault(userId, new ArrayList<>());
         requests.add(currentTime);
         rateLimitMap.put(userId, requests);

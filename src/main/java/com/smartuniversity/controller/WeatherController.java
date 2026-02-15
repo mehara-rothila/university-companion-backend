@@ -3,11 +3,12 @@ package com.smartuniversity.controller;
 import com.smartuniversity.dto.WeatherResponse;
 import com.smartuniversity.service.WeatherService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/weather")
-@CrossOrigin(origins = {"http://localhost:3000", "https://*.netlify.app"})
 public class WeatherController {
 
     private final WeatherService weatherService;

@@ -4,6 +4,8 @@ import com.smartuniversity.dto.WeatherResponse;
 import com.smartuniversity.dto.WeatherResponse.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -20,12 +22,15 @@ import java.util.Map;
 @Service
 public class WeatherService {
 
+    private static final Logger log = LoggerFactory.getLogger(WeatherService.class);
+
     @Value("${weather.api.key}")
     private String apiKey;
 
     private static final String BASE_URL = "https://api.openweathermap.org/data/2.5";
     private static final double UOM_LAT = 6.7951276;
     private static final double UOM_LON = 79.900867;
+    private static final ZoneId SRI_LANKA_ZONE = ZoneId.of("Asia/Colombo");
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -38,16 +43,14 @@ public class WeatherService {
     @Cacheable(value = "weatherCache", key = "'uom-weather'")
     public WeatherResponse getWeather() {
         try {
-            // Fetch current weather
             CurrentWeather current = fetchCurrentWeather();
-
-            // Fetch forecast data
             JsonNode forecastData = fetchForecast();
             List<HourlyForecast> hourly = parseHourlyForecast(forecastData);
             List<DailyForecast> daily = parseDailyForecast(forecastData);
 
             return new WeatherResponse(current, hourly, daily);
         } catch (Exception e) {
+            log.error("Failed to fetch weather data", e);
             throw new RuntimeException("Failed to fetch weather data: " + e.getMessage());
         }
     }
@@ -63,7 +66,7 @@ public class WeatherService {
             CurrentWeather weather = new CurrentWeather();
 
             weather.setTemperature((int) Math.round(root.path("main").path("temp").asDouble()));
-            weather.setCondition(root.path("weather").get(0).path("main").asText());
+            weather.setCondition(getConditionSafe(root.path("weather")));
             weather.setHumidity(root.path("main").path("humidity").asInt());
             weather.setWindSpeed((int) Math.round(root.path("wind").path("speed").asDouble() * 3.6)); // m/s to km/h
             weather.setFeelsLike((int) Math.round(root.path("main").path("feels_like").asDouble()));
@@ -75,6 +78,7 @@ public class WeatherService {
 
             return weather;
         } catch (Exception e) {
+            log.error("Failed to parse current weather", e);
             throw new RuntimeException("Failed to parse current weather: " + e.getMessage());
         }
     }
@@ -88,6 +92,7 @@ public class WeatherService {
         try {
             return objectMapper.readTree(response);
         } catch (Exception e) {
+            log.error("Failed to parse forecast data", e);
             throw new RuntimeException("Failed to parse forecast data: " + e.getMessage());
         }
     }
@@ -102,7 +107,7 @@ public class WeatherService {
 
             hourly.setTime(formatTime(item.path("dt").asLong()));
             hourly.setTemperature((int) Math.round(item.path("main").path("temp").asDouble()));
-            hourly.setCondition(item.path("weather").get(0).path("main").asText());
+            hourly.setCondition(getConditionSafe(item.path("weather")));
             hourly.setPrecipitation((int) Math.round(item.path("pop").asDouble() * 100));
 
             hourlyList.add(hourly);
@@ -117,12 +122,12 @@ public class WeatherService {
 
         JsonNode list = forecastData.path("list");
 
-        // Group by day
+        // Group by day using Sri Lanka timezone
         for (JsonNode item : list) {
             long timestamp = item.path("dt").asLong();
             LocalDateTime dateTime = LocalDateTime.ofInstant(
                 Instant.ofEpochSecond(timestamp),
-                ZoneId.systemDefault()
+                SRI_LANKA_ZONE
             );
             String dateKey = dateTime.toLocalDate().toString();
 
@@ -134,13 +139,13 @@ public class WeatherService {
             .limit(7)
             .forEach(entry -> {
                 List<JsonNode> items = entry.getValue();
+                if (items.isEmpty()) return;
+
                 DailyForecast daily = new DailyForecast();
 
-                // Get day name
                 long timestamp = items.get(0).path("dt").asLong();
                 daily.setDay(getDayName(timestamp));
 
-                // Calculate high/low
                 double high = items.stream()
                     .mapToDouble(item -> item.path("main").path("temp").asDouble())
                     .max().orElse(0);
@@ -151,10 +156,8 @@ public class WeatherService {
                 daily.setHigh((int) Math.round(high));
                 daily.setLow((int) Math.round(low));
 
-                // Get most common condition
-                daily.setCondition(items.get(0).path("weather").get(0).path("main").asText());
+                daily.setCondition(getConditionSafe(items.get(0).path("weather")));
 
-                // Average precipitation
                 double avgPrecip = items.stream()
                     .mapToDouble(item -> item.path("pop").asDouble())
                     .average().orElse(0);
@@ -166,10 +169,21 @@ public class WeatherService {
         return dailyList;
     }
 
+    /**
+     * Safely extract weather condition from the "weather" JSON array.
+     * Returns "Unknown" if array is null or empty.
+     */
+    private String getConditionSafe(JsonNode weatherArray) {
+        if (weatherArray != null && weatherArray.isArray() && weatherArray.size() > 0) {
+            return weatherArray.get(0).path("main").asText("Unknown");
+        }
+        return "Unknown";
+    }
+
     private String formatTime(long timestamp) {
         LocalDateTime dateTime = LocalDateTime.ofInstant(
             Instant.ofEpochSecond(timestamp),
-            ZoneId.systemDefault()
+            SRI_LANKA_ZONE
         );
         return dateTime.format(DateTimeFormatter.ofPattern("h:mm a"));
     }
@@ -177,7 +191,7 @@ public class WeatherService {
     private String getDayName(long timestamp) {
         LocalDateTime dateTime = LocalDateTime.ofInstant(
             Instant.ofEpochSecond(timestamp),
-            ZoneId.systemDefault()
+            SRI_LANKA_ZONE
         );
         return dateTime.format(DateTimeFormatter.ofPattern("EEEE"));
     }
