@@ -361,13 +361,18 @@ public class CompetitionController {
 
     // Get enrollments for a competition (for organizer)
     @GetMapping("/{competitionId}/enrollments")
-    public ResponseEntity<?> getCompetitionEnrollments(@PathVariable Long competitionId, @RequestParam Long organizerId) {
+    public ResponseEntity<?> getCompetitionEnrollments(
+            @PathVariable Long competitionId,
+            @RequestParam(required = false) Long organizerId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
             Competition competition = competitionRepository.findById(competitionId)
                 .orElseThrow(() -> new RuntimeException("Competition not found"));
 
-            // Verify organizer
-            if (!competition.getOrganizerId().equals(organizerId)) {
+            // Allow organizer or admin
+            boolean isAdmin = authUtils.isAdmin(authHeader);
+            boolean isOrganizer = organizerId != null && competition.getOrganizerId().equals(organizerId);
+            if (!isAdmin && !isOrganizer) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized"));
             }
 
@@ -401,13 +406,18 @@ public class CompetitionController {
 
     // Export enrollments as CSV
     @GetMapping("/{competitionId}/enrollments/export")
-    public ResponseEntity<?> exportEnrollments(@PathVariable Long competitionId, @RequestParam Long organizerId) {
+    public ResponseEntity<?> exportEnrollments(
+            @PathVariable Long competitionId,
+            @RequestParam(required = false) Long organizerId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
             Competition competition = competitionRepository.findById(competitionId)
                 .orElseThrow(() -> new RuntimeException("Competition not found"));
 
-            // Verify organizer
-            if (!competition.getOrganizerId().equals(organizerId)) {
+            // Allow organizer or admin
+            boolean isAdmin = authUtils.isAdmin(authHeader);
+            boolean isOrganizer = organizerId != null && competition.getOrganizerId().equals(organizerId);
+            if (!isAdmin && !isOrganizer) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized"));
             }
 
