@@ -46,6 +46,9 @@ public class S3Service {
         }
 
         String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || !originalFilename.contains(".")) {
+            throw new IllegalArgumentException("File must have a valid name with extension");
+        }
         String fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
         String fileName = folder + "/" + UUID.randomUUID() + fileExtension;
 
