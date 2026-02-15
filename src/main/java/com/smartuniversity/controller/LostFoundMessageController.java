@@ -54,7 +54,7 @@ public class LostFoundMessageController {
     @Transactional
     public ResponseEntity<?> requestConversation(
             @Valid @RequestBody LostFoundConversationRequest request,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @RequestHeader(value = "Authorization") String authHeader) {
         try {
             User requester = authUtils.getUserFromAuthHeader(authHeader);
             if (requester == null) {
@@ -125,7 +125,7 @@ public class LostFoundMessageController {
     @GetMapping("/conversations")
     public ResponseEntity<?> getMyConversations(
             @RequestParam(required = false) String status,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @RequestHeader(value = "Authorization") String authHeader) {
         try {
             User user = authUtils.getUserFromAuthHeader(authHeader);
             if (user == null) {
@@ -177,7 +177,7 @@ public class LostFoundMessageController {
      */
     @GetMapping("/conversations/pending")
     public ResponseEntity<?> getPendingRequests(
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @RequestHeader(value = "Authorization") String authHeader) {
         try {
             User user = authUtils.getUserFromAuthHeader(authHeader);
             if (user == null) {
@@ -206,7 +206,7 @@ public class LostFoundMessageController {
     @Transactional
     public ResponseEntity<?> approveConversation(
             @PathVariable Long conversationId,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @RequestHeader(value = "Authorization") String authHeader) {
         try {
             User user = authUtils.getUserFromAuthHeader(authHeader);
             if (user == null) {
@@ -270,7 +270,7 @@ public class LostFoundMessageController {
     @PostMapping("/conversations/{conversationId}/reject")
     public ResponseEntity<?> rejectConversation(
             @PathVariable Long conversationId,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @RequestHeader(value = "Authorization") String authHeader) {
         try {
             User user = authUtils.getUserFromAuthHeader(authHeader);
             if (user == null) {
@@ -315,7 +315,7 @@ public class LostFoundMessageController {
     @PostMapping("/conversations/{conversationId}/close")
     public ResponseEntity<?> closeConversation(
             @PathVariable Long conversationId,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @RequestHeader(value = "Authorization") String authHeader) {
         try {
             User user = authUtils.getUserFromAuthHeader(authHeader);
             if (user == null) {
@@ -362,7 +362,7 @@ public class LostFoundMessageController {
     @PostMapping("/send")
     public ResponseEntity<?> sendMessage(
             @Valid @RequestBody LostFoundMessageRequest request,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @RequestHeader(value = "Authorization") String authHeader) {
         try {
             User sender = authUtils.getUserFromAuthHeader(authHeader);
             if (sender == null) {
@@ -423,7 +423,7 @@ public class LostFoundMessageController {
     @Transactional
     public ResponseEntity<?> getMessages(
             @PathVariable Long conversationId,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @RequestHeader(value = "Authorization") String authHeader) {
         try {
             User user = authUtils.getUserFromAuthHeader(authHeader);
             if (user == null) {
@@ -466,7 +466,7 @@ public class LostFoundMessageController {
      */
     @GetMapping("/unread-count")
     public ResponseEntity<?> getUnreadCount(
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @RequestHeader(value = "Authorization") String authHeader) {
         try {
             User user = authUtils.getUserFromAuthHeader(authHeader);
             if (user == null) {
@@ -553,7 +553,7 @@ public class LostFoundMessageController {
     public ResponseEntity<?> sendTypingIndicator(
             @PathVariable Long conversationId,
             @RequestParam boolean isTyping,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @RequestHeader(value = "Authorization") String authHeader) {
         try {
             User user = authUtils.getUserFromAuthHeader(authHeader);
             if (user == null) {
@@ -602,7 +602,7 @@ public class LostFoundMessageController {
     @PostMapping("/online-status")
     public ResponseEntity<?> updateOnlineStatus(
             @RequestParam boolean isOnline,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @RequestHeader(value = "Authorization") String authHeader) {
         try {
             User user = authUtils.getUserFromAuthHeader(authHeader);
             if (user == null) {
