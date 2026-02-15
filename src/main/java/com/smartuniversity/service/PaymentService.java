@@ -7,8 +7,11 @@ import com.smartuniversity.repository.FinancialAidDonationRepository;
 import com.smartuniversity.repository.FinancialAidRepository;
 import com.stripe.Stripe;
 import com.stripe.model.checkout.Session;
+import com.stripe.net.Webhook;
+import com.stripe.model.Event;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.PostConstruct;
 import java.math.BigDecimal;
@@ -40,6 +43,7 @@ public class PaymentService {
     /**
      * Confirm a Stripe payment session and update the donation record
      */
+    @Transactional
     public Map<String, Object> confirmStripePayment(String sessionId) {
         Map<String, Object> result = new HashMap<>();
 
@@ -74,16 +78,15 @@ public class PaymentService {
 
             Long financialAidId = Long.parseLong(financialAidIdStr);
 
-            // Check if donation already exists for this session
-            List<FinancialAidDonation> existingDonations = donationRepository.findByTransactionIdContaining(sessionId);
-            if (!existingDonations.isEmpty()) {
-                FinancialAidDonation existing = existingDonations.get(0);
-                if (existing.getStatus() == FinancialAidDonation.DonationStatus.COMPLETED) {
+            // Check if donation already exists for this session (exact match)
+            FinancialAidDonation existingDonation = donationRepository.findByTransactionId(sessionId);
+            if (existingDonation != null) {
+                if (existingDonation.getStatus() == FinancialAidDonation.DonationStatus.COMPLETED) {
                     System.out.println("Donation already completed for session: " + sessionId);
                     result.put("status", "COMPLETED");
                     result.put("message", "Donation already recorded");
-                    result.put("donationId", existing.getId());
-                    result.put("amount", existing.getAmount());
+                    result.put("donationId", existingDonation.getId());
+                    result.put("amount", existingDonation.getAmount());
                     return result;
                 }
             }
@@ -103,8 +106,8 @@ public class PaymentService {
 
             // Create or update donation record
             FinancialAidDonation donation;
-            if (!existingDonations.isEmpty()) {
-                donation = existingDonations.get(0);
+            if (existingDonation != null) {
+                donation = existingDonation;
             } else {
                 donation = new FinancialAidDonation(financialAid, null, amount);
             }
@@ -148,11 +151,10 @@ public class PaymentService {
         Map<String, Object> result = new HashMap<>();
 
         try {
-            // First check our database
-            List<FinancialAidDonation> donations = donationRepository.findByTransactionIdContaining(sessionId);
+            // First check our database (exact match)
+            FinancialAidDonation donation = donationRepository.findByTransactionId(sessionId);
 
-            if (!donations.isEmpty()) {
-                FinancialAidDonation donation = donations.get(0);
+            if (donation != null) {
                 result.put("status", donation.getStatus().toString());
                 result.put("amount", donation.getAmount());
                 result.put("donationId", donation.getId());
@@ -182,17 +184,30 @@ public class PaymentService {
     }
 
     /**
-     * Process Stripe webhook events
+     * Process Stripe webhook events with signature verification
      */
     public boolean processStripeWebhook(String payload, String sigHeader) {
         try {
-            // For now, just log the webhook
-            System.out.println("Received Stripe webhook");
+            String webhookSecret = paymentConfig.getWebhookSecret();
+            if (webhookSecret == null || webhookSecret.isEmpty()) {
+                System.err.println("Stripe webhook secret not configured — rejecting webhook");
+                return false;
+            }
 
-            // In production, you would verify the signature and process events
-            // Event event = Webhook.constructEvent(payload, sigHeader, paymentConfig.getWebhookSecret());
+            // Verify webhook signature to prevent forged events
+            Event event = Webhook.constructEvent(payload, sigHeader, webhookSecret);
+            System.out.println("Verified Stripe webhook event: " + event.getType());
+
+            // Process relevant event types
+            if ("checkout.session.completed".equals(event.getType())) {
+                // Payment was successful — confirmation handled by confirmStripePayment
+                System.out.println("Checkout session completed event received");
+            }
 
             return true;
+        } catch (com.stripe.exception.SignatureVerificationException e) {
+            System.err.println("Webhook signature verification failed: " + e.getMessage());
+            return false;
         } catch (Exception e) {
             System.err.println("Webhook processing error: " + e.getMessage());
             return false;
