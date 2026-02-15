@@ -2,6 +2,7 @@ package com.smartuniversity.controller;
 
 import com.smartuniversity.model.Book;
 import com.smartuniversity.model.BookRequest;
+import com.smartuniversity.model.User;
 import com.smartuniversity.repository.BookRepository;
 import com.smartuniversity.repository.BookRequestRepository;
 import com.smartuniversity.repository.UserRatingRepository;
@@ -217,9 +218,13 @@ public class BookController {
         return book.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    // Create new book
+    // Create new book (requires authentication)
     @PostMapping
-    public ResponseEntity<?> createBook(@RequestBody Book book) {
+    public ResponseEntity<?> createBook(@RequestBody Book book,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authUtils.getUserFromAuthHeader(authHeader) == null) {
+            return ResponseEntity.status(401).body("Authentication required");
+        }
         try {
             book.setUploadDate(LocalDateTime.now());
             if (book.getTotalRequests() == null) {
@@ -231,10 +236,8 @@ public class BookController {
             if (book.getAvailableForLending() == null) {
                 book.setAvailableForLending(true);
             }
-            // Set status to PENDING for admin approval
-            if (book.getStatus() == null) {
-                book.setStatus(Book.BookStatus.PENDING);
-            }
+            // Always set status to PENDING — cannot bypass admin approval
+            book.setStatus(Book.BookStatus.PENDING);
 
             Book savedBook = bookRepository.save(book);
             return ResponseEntity.ok(savedBook);
@@ -243,9 +246,13 @@ public class BookController {
         }
     }
 
-    // Update book
+    // Update book (requires authentication)
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateBook(@PathVariable Long id, @RequestBody Book bookDetails) {
+    public ResponseEntity<?> updateBook(@PathVariable Long id, @RequestBody Book bookDetails,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authUtils.getUserFromAuthHeader(authHeader) == null) {
+            return ResponseEntity.status(401).body("Authentication required");
+        }
         Optional<Book> bookOptional = bookRepository.findById(id);
         if (bookOptional.isEmpty()) {
             return ResponseEntity.notFound().build();
@@ -305,9 +312,13 @@ public class BookController {
         }
     }
 
-    // Delete book
+    // Delete book (requires admin)
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteBook(@PathVariable Long id) {
+    public ResponseEntity<?> deleteBook(@PathVariable Long id,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (!authUtils.isAdmin(authHeader)) {
+            return ResponseEntity.status(403).body("Admin privileges required");
+        }
         try {
             Optional<Book> book = bookRepository.findById(id);
             if (book.isEmpty()) {
@@ -348,20 +359,50 @@ public class BookController {
 
     // --- Book Request Endpoints ---
 
-    // Create book request
+    // Create book request (requires authentication)
     @PostMapping("/requests")
-    public ResponseEntity<?> createBookRequest(@RequestBody BookRequest bookRequest) {
+    public ResponseEntity<?> createBookRequest(
+            @RequestBody BookRequest bookRequest,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            User requester = authUtils.getUserFromAuthHeader(authHeader);
+            if (requester == null) {
+                return ResponseEntity.status(401).body("Authentication required");
+            }
+
+            // Validate required fields
+            if (bookRequest.getBookId() == null) {
+                return ResponseEntity.badRequest().body("Book ID is required");
+            }
+            if (bookRequest.getMessage() != null && bookRequest.getMessage().length() > 2000) {
+                return ResponseEntity.badRequest().body("Message must be under 2000 characters");
+            }
+            if (bookRequest.getRequestType() == null) {
+                return ResponseEntity.badRequest().body("Request type is required");
+            }
+
+            Optional<Book> bookOptional = bookRepository.findById(bookRequest.getBookId());
+            if (bookOptional.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Book book = bookOptional.get();
+
+            // Cannot request your own book
+            if (book.getOwnerId() != null && book.getOwnerId().equals(requester.getId())) {
+                return ResponseEntity.badRequest().body("Cannot request your own book");
+            }
+
+            // Set authenticated user info (don't trust client-supplied values)
+            bookRequest.setRequesterId(requester.getId());
+            bookRequest.setRequesterName(requester.getFirstName() + " " + requester.getLastName());
+            bookRequest.setRequesterEmail(requester.getEmail());
             bookRequest.setRequestDate(LocalDateTime.now());
             bookRequest.setStatus(BookRequest.RequestStatus.PENDING);
 
             // Increment total requests for the book
-            Optional<Book> bookOptional = bookRepository.findById(bookRequest.getBookId());
-            if (bookOptional.isPresent()) {
-                Book book = bookOptional.get();
-                book.setTotalRequests(book.getTotalRequests() + 1);
-                bookRepository.save(book);
-            }
+            book.setTotalRequests(book.getTotalRequests() + 1);
+            bookRepository.save(book);
 
             BookRequest savedRequest = bookRequestRepository.save(bookRequest);
             return ResponseEntity.ok(savedRequest);
@@ -370,33 +411,95 @@ public class BookController {
         }
     }
 
-    // Get all requests for a book
+    // Get all requests for a book (only book owner can see)
     @GetMapping("/{bookId}/requests")
-    public ResponseEntity<List<BookRequest>> getRequestsForBook(@PathVariable Long bookId) {
+    public ResponseEntity<?> getRequestsForBook(
+            @PathVariable Long bookId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        User user = authUtils.getUserFromAuthHeader(authHeader);
+        if (user == null) {
+            return ResponseEntity.status(401).body("Authentication required");
+        }
+
+        Optional<Book> bookOptional = bookRepository.findById(bookId);
+        if (bookOptional.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // Only the book owner or admin can view requests for a book
+        Book book = bookOptional.get();
+        if (!user.getId().equals(book.getOwnerId()) && user.getRole() != com.smartuniversity.model.User.UserRole.ADMIN) {
+            return ResponseEntity.status(403).body("Only the book owner can view requests");
+        }
+
         List<BookRequest> requests = bookRequestRepository.findByBookId(bookId);
         return ResponseEntity.ok(requests);
     }
 
-    // Get all requests by a user
+    // Get all requests by a user (only own requests)
     @GetMapping("/requests/user/{userId}")
-    public ResponseEntity<List<BookRequest>> getRequestsByUser(@PathVariable Long userId) {
+    public ResponseEntity<?> getRequestsByUser(
+            @PathVariable Long userId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        User user = authUtils.getUserFromAuthHeader(authHeader);
+        if (user == null) {
+            return ResponseEntity.status(401).body("Authentication required");
+        }
+
+        // Users can only view their own requests, admins can view any
+        if (!user.getId().equals(userId) && user.getRole() != com.smartuniversity.model.User.UserRole.ADMIN) {
+            return ResponseEntity.status(403).body("You can only view your own requests");
+        }
+
         List<BookRequest> requests = bookRequestRepository.findByRequesterId(userId);
         return ResponseEntity.ok(requests);
     }
 
-    // Get single request
+    // Get single request (only participants or admin)
     @GetMapping("/requests/{requestId}")
-    public ResponseEntity<BookRequest> getRequestById(@PathVariable Long requestId) {
-        Optional<BookRequest> request = bookRequestRepository.findById(requestId);
-        return request.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<?> getRequestById(
+            @PathVariable Long requestId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        User user = authUtils.getUserFromAuthHeader(authHeader);
+        if (user == null) {
+            return ResponseEntity.status(401).body("Authentication required");
+        }
+
+        Optional<BookRequest> requestOptional = bookRequestRepository.findById(requestId);
+        if (requestOptional.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        BookRequest request = requestOptional.get();
+
+        // Only the requester, book owner, or admin can view the request
+        boolean isRequester = user.getId().equals(request.getRequesterId());
+        boolean isAdmin = user.getRole() == com.smartuniversity.model.User.UserRole.ADMIN;
+        boolean isOwner = false;
+        Optional<Book> bookOptional = bookRepository.findById(request.getBookId());
+        if (bookOptional.isPresent()) {
+            isOwner = user.getId().equals(bookOptional.get().getOwnerId());
+        }
+
+        if (!isRequester && !isOwner && !isAdmin) {
+            return ResponseEntity.status(403).body("Access denied");
+        }
+
+        return ResponseEntity.ok(request);
     }
 
-    // Update request status
+    // Update request status (only book owner or admin can approve/decline)
     @PutMapping("/requests/{requestId}/status")
     public ResponseEntity<?> updateRequestStatus(
             @PathVariable Long requestId,
-            @RequestParam String status) {
+            @RequestParam String status,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            User user = authUtils.getUserFromAuthHeader(authHeader);
+            if (user == null) {
+                return ResponseEntity.status(401).body("Authentication required");
+            }
+
             Optional<BookRequest> requestOptional = bookRequestRepository.findById(requestId);
             if (requestOptional.isEmpty()) {
                 return ResponseEntity.notFound().build();
@@ -404,12 +507,24 @@ public class BookController {
 
             BookRequest request = requestOptional.get();
             BookRequest.RequestStatus newStatus = BookRequest.RequestStatus.valueOf(status.toUpperCase());
+
+            // Authorization: only book owner or admin can change status
+            Optional<Book> bookOptional = bookRepository.findById(request.getBookId());
+            if (bookOptional.isPresent()) {
+                Book book = bookOptional.get();
+                boolean isOwner = user.getId().equals(book.getOwnerId());
+                boolean isAdmin = user.getRole() == com.smartuniversity.model.User.UserRole.ADMIN;
+
+                if (!isOwner && !isAdmin) {
+                    return ResponseEntity.status(403).body("Only the book owner can update request status");
+                }
+            }
+
             request.setStatus(newStatus);
 
             // If approved and it's a borrow request, mark book as unavailable
             if (newStatus == BookRequest.RequestStatus.APPROVED &&
                 request.getRequestType() == BookRequest.RequestType.BORROW) {
-                Optional<Book> bookOptional = bookRepository.findById(request.getBookId());
                 if (bookOptional.isPresent()) {
                     Book book = bookOptional.get();
                     book.setAvailableForLending(false);
@@ -425,7 +540,6 @@ public class BookController {
             if ((newStatus == BookRequest.RequestStatus.RETURNED ||
                  newStatus == BookRequest.RequestStatus.COMPLETED) &&
                 request.getRequestType() == BookRequest.RequestType.BORROW) {
-                Optional<Book> bookOptional = bookRepository.findById(request.getBookId());
                 if (bookOptional.isPresent()) {
                     Book book = bookOptional.get();
                     book.setAvailableForLending(true);
@@ -444,13 +558,32 @@ public class BookController {
         }
     }
 
-    // Delete request
+    // Delete request (only the requester or admin can delete)
     @DeleteMapping("/requests/{requestId}")
-    public ResponseEntity<?> deleteRequest(@PathVariable Long requestId) {
+    public ResponseEntity<?> deleteRequest(
+            @PathVariable Long requestId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            if (!bookRequestRepository.existsById(requestId)) {
+            User user = authUtils.getUserFromAuthHeader(authHeader);
+            if (user == null) {
+                return ResponseEntity.status(401).body("Authentication required");
+            }
+
+            Optional<BookRequest> requestOptional = bookRequestRepository.findById(requestId);
+            if (requestOptional.isEmpty()) {
                 return ResponseEntity.notFound().build();
             }
+
+            BookRequest request = requestOptional.get();
+
+            // Only the requester or admin can delete a request
+            boolean isRequester = user.getId().equals(request.getRequesterId());
+            boolean isAdmin = user.getRole() == com.smartuniversity.model.User.UserRole.ADMIN;
+
+            if (!isRequester && !isAdmin) {
+                return ResponseEntity.status(403).body("You can only delete your own requests");
+            }
+
             bookRequestRepository.deleteById(requestId);
             return ResponseEntity.ok("Request deleted successfully");
         } catch (Exception e) {
