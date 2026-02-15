@@ -2,6 +2,7 @@ package com.smartuniversity.controller;
 
 import com.smartuniversity.model.User;
 import com.smartuniversity.repository.UserRepository;
+import com.smartuniversity.util.AuthUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -29,6 +30,9 @@ public class AdminController {
     
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private AuthUtils authUtils;
     
     /**
      * Get dashboard statistics
@@ -202,7 +206,32 @@ public class AdminController {
         }
         
         User existingUser = existingUserOpt.get();
-        
+
+        // Check email uniqueness if changed
+        if (updatedUser.getEmail() != null && !updatedUser.getEmail().equals(existingUser.getEmail())) {
+            if (userRepository.findByEmail(updatedUser.getEmail()).isPresent()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Email already in use"));
+            }
+        }
+
+        // Check username uniqueness if changed
+        if (updatedUser.getUsername() != null && !updatedUser.getUsername().equals(existingUser.getUsername())) {
+            if (userRepository.existsByUsername(updatedUser.getUsername())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Username already in use"));
+            }
+        }
+
+        // Prevent admin from disabling themselves or removing their own admin role
+        Long currentAdminId = authUtils.getCurrentUserId();
+        if (currentAdminId != null && currentAdminId.equals(id)) {
+            if (updatedUser.getRole() != null && updatedUser.getRole() != existingUser.getRole()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Cannot change your own role"));
+            }
+            if (!updatedUser.isEnabled()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Cannot disable your own account"));
+            }
+        }
+
         // Update fields
         existingUser.setFirstName(updatedUser.getFirstName());
         existingUser.setLastName(updatedUser.getLastName());
@@ -213,7 +242,7 @@ public class AdminController {
         existingUser.setMajor(updatedUser.getMajor());
         existingUser.setYear(updatedUser.getYear());
         existingUser.setEnabled(updatedUser.isEnabled());
-        
+
         try {
             userRepository.save(existingUser);
             return ResponseEntity.ok(Map.of("message", "User updated successfully", "user", existingUser));
