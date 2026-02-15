@@ -8,6 +8,7 @@ import org.springframework.cache.concurrent.ConcurrentMapCache;
 import org.springframework.cache.support.SimpleCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Arrays;
@@ -35,5 +36,14 @@ public class WeatherConfig {
                 new ConcurrentMapCache("weatherCache")
         ));
         return cacheManager;
+    }
+
+    // Evict weather cache every 15 minutes to ensure fresh data
+    @Scheduled(fixedRate = 900000)
+    public void evictWeatherCache() {
+        var cache = cacheManager().getCache("weatherCache");
+        if (cache != null) {
+            cache.clear();
+        }
     }
 }
