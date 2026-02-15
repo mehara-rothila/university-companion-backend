@@ -9,7 +9,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -22,11 +21,11 @@ public class AuthUtils {
     private UserRepository userRepository;
 
     /**
-     * Extract user from JWT token in Authorization header
-     * Falls back to User ID 1, then any user, then null
+     * Extract user from JWT token in Authorization header.
+     * Returns null if token is missing, invalid, or user not found.
      *
      * @param authHeader Authorization header value (e.g., "Bearer jwt-token")
-     * @return User object or null if not found
+     * @return User object or null if not authenticated
      */
     public User getUserFromAuthHeader(String authHeader) {
         User user = null;
@@ -49,25 +48,8 @@ public class AuthUtils {
             }
         }
 
-        // Fallback: Try to find user ID 1 first
-        System.out.println("No user from JWT, trying fallback methods...");
-        Optional<User> userOpt = userRepository.findById(1L);
-        if (userOpt.isPresent()) {
-            user = userOpt.get();
-            System.out.println("Using user ID 1");
-            return user;
-        }
-
-        // Fallback: Try to find any user
-        List<User> users = userRepository.findAll();
-        if (!users.isEmpty()) {
-            user = users.get(0);
-            System.out.println("Using first available user: " + user.getUsername() + " (ID: " + user.getId() + ")");
-            return user;
-        }
-
-        // If still no user found, return null
-        System.out.println("No user found, returning null");
+        // No valid JWT token — return null (unauthenticated)
+        System.err.println("No valid JWT token provided, returning null");
         return null;
     }
 
@@ -111,10 +93,10 @@ public class AuthUtils {
     }
 
     /**
-     * Get the current authenticated user's ID from Spring Security context
-     * Falls back to User ID 1 if no authentication is found
+     * Get the current authenticated user's ID from Spring Security context.
+     * Returns null if no authenticated user is found.
      *
-     * @return User ID of currently authenticated user
+     * @return User ID of currently authenticated user, or null
      */
     public Long getCurrentUserId() {
         try {
@@ -135,7 +117,7 @@ public class AuthUtils {
             System.err.println("Error getting current user ID: " + e.getMessage());
         }
 
-        // Fallback to User ID 1
-        return 1L;
+        // No authenticated user found — return null
+        return null;
     }
 }
