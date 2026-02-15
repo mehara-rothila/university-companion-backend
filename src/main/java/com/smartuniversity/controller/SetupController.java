@@ -55,6 +55,7 @@ public class SetupController {
             User adminUser = new User(firstName, lastName, email, username, passwordEncoder.encode(password));
             adminUser.setRole(User.UserRole.ADMIN);
             adminUser.setEnabled(true);
+            adminUser.setEmailVerified(true);
             
             userRepository.save(adminUser);
             
@@ -69,6 +70,24 @@ public class SetupController {
         }
     }
     
+    /**
+     * Verify admin email (for setup purposes)
+     */
+    @PostMapping("/verify-admin")
+    public ResponseEntity<?> verifyAdminEmail() {
+        var admins = userRepository.findAll().stream()
+                .filter(u -> u.getRole() == User.UserRole.ADMIN)
+                .toList();
+        if (admins.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "No admin user found"));
+        }
+        for (User admin : admins) {
+            admin.setEmailVerified(true);
+            userRepository.save(admin);
+        }
+        return ResponseEntity.ok(Map.of("message", "Admin email(s) verified successfully"));
+    }
+
     /**
      * Check if setup is needed (no admin users exist)
      */
