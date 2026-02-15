@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -70,7 +69,7 @@ public class WeatherService {
             weather.setFeelsLike((int) Math.round(root.path("main").path("feels_like").asDouble()));
             weather.setPressure(root.path("main").path("pressure").asInt());
             weather.setVisibility((int) Math.round(root.path("visibility").asDouble() / 1000)); // meters to km
-            weather.setUvIndex(7); // Free tier doesn't include UV
+            weather.setUvIndex(-1); // UV data unavailable on free tier
             weather.setSunrise(formatTime(root.path("sys").path("sunrise").asLong()));
             weather.setSunset(formatTime(root.path("sys").path("sunset").asLong()));
 
@@ -114,7 +113,7 @@ public class WeatherService {
 
     private List<DailyForecast> parseDailyForecast(JsonNode forecastData) {
         List<DailyForecast> dailyList = new ArrayList<>();
-        Map<String, List<JsonNode>> dailyMap = new HashMap<>();
+        Map<String, List<JsonNode>> dailyMap = new java.util.LinkedHashMap<>();
 
         JsonNode list = forecastData.path("list");
 
