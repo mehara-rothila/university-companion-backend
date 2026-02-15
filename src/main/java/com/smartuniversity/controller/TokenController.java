@@ -1,8 +1,10 @@
 package com.smartuniversity.controller;
 
 import com.smartuniversity.service.TokenService;
+import com.smartuniversity.util.AuthUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -88,6 +90,7 @@ public class TokenController {
      * Reset tokens for a specific user (admin only)
      * POST /api/tokens/reset/{userId}
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/reset/{userId}")
     public ResponseEntity<?> resetUserTokens(@PathVariable Long userId) {
         try {
