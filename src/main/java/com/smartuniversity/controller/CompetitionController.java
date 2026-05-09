@@ -242,8 +242,14 @@ public class CompetitionController {
 
     // Admin: Update competition image only
     @PutMapping("/{id}/image")
-    public ResponseEntity<?> updateCompetitionImage(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> updateCompetitionImage(@PathVariable Long id, @RequestBody Map<String, String> body,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
+                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
+            }
+
             Competition competition = competitionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Competition not found"));
 

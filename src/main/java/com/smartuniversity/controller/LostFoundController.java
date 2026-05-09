@@ -116,12 +116,14 @@ public class LostFoundController {
                 }
                 sb.append(error.getDefaultMessage()).append("; ");
             });
-            System.out.println("Validation errors: " + sb.toString());
             return ResponseEntity.badRequest().body("Validation error: " + sb.toString());
         }
 
         // Get user from authentication (handles JWT extraction and fallbacks)
         User user = authUtils.getUserFromAuthHeader(authHeader);
+        if (user == null) {
+            return ResponseEntity.status(401).body("Authentication required");
+        }
 
         LostFoundItem item = new LostFoundItem(
                 request.getType(),
@@ -148,7 +150,8 @@ public class LostFoundController {
 
     @PutMapping("/items/{id}")
     public ResponseEntity<?> updateItem(@PathVariable Long id,
-            @Valid @RequestBody LostFoundItemRequest request) {
+            @Valid @RequestBody LostFoundItemRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         Optional<LostFoundItem> itemOpt = lostFoundItemRepository.findById(id);
 
         if (!itemOpt.isPresent()) {
@@ -156,6 +159,16 @@ public class LostFoundController {
         }
 
         LostFoundItem item = itemOpt.get();
+
+        // Verify ownership or admin
+        User user = authUtils.getUserFromAuthHeader(authHeader);
+        if (user == null) {
+            return ResponseEntity.status(401).body("Authentication required");
+        }
+        boolean isAdmin = authUtils.isAdmin(authHeader);
+        if (!isAdmin && !item.getPostedBy().getId().equals(user.getId())) {
+            return ResponseEntity.status(403).body("Only the item owner or admin can update this item");
+        }
 
         item.setType(request.getType());
         item.setTitle(request.getTitle());
@@ -178,16 +191,27 @@ public class LostFoundController {
 
     @PutMapping("/items/{id}/status")
     public ResponseEntity<?> updateItemStatus(@PathVariable Long id,
-            @RequestParam String status) {
+            @RequestParam String status,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         Optional<LostFoundItem> itemOpt = lostFoundItemRepository.findById(id);
 
         if (!itemOpt.isPresent()) {
             return ResponseEntity.notFound().build();
         }
 
+        // Verify ownership or admin
+        User user = authUtils.getUserFromAuthHeader(authHeader);
+        if (user == null) {
+            return ResponseEntity.status(401).body("Authentication required");
+        }
+        boolean isAdmin = authUtils.isAdmin(authHeader);
+        LostFoundItem item = itemOpt.get();
+        if (!isAdmin && !item.getPostedBy().getId().equals(user.getId())) {
+            return ResponseEntity.status(403).body("Only the item owner or admin can update this item's status");
+        }
+
         try {
             LostFoundItem.ItemStatus newStatus = LostFoundItem.ItemStatus.valueOf(status.toUpperCase());
-            LostFoundItem item = itemOpt.get();
             item.setStatus(newStatus);
 
             LostFoundItem savedItem = lostFoundItemRepository.save(item);
@@ -198,11 +222,23 @@ public class LostFoundController {
     }
 
     @DeleteMapping("/items/{id}")
-    public ResponseEntity<?> deleteItem(@PathVariable Long id) {
+    public ResponseEntity<?> deleteItem(@PathVariable Long id,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         Optional<LostFoundItem> itemOpt = lostFoundItemRepository.findById(id);
 
         if (!itemOpt.isPresent()) {
             return ResponseEntity.notFound().build();
+        }
+
+        // Verify ownership or admin
+        User user = authUtils.getUserFromAuthHeader(authHeader);
+        if (user == null) {
+            return ResponseEntity.status(401).body("Authentication required");
+        }
+        boolean isAdmin = authUtils.isAdmin(authHeader);
+        LostFoundItem item = itemOpt.get();
+        if (!isAdmin && !item.getPostedBy().getId().equals(user.getId())) {
+            return ResponseEntity.status(403).body("Only the item owner or admin can delete this item");
         }
 
         lostFoundItemRepository.deleteById(id);

@@ -20,7 +20,7 @@ spring.web.cors.allowed-headers=*
 spring.web.cors.allow-credentials=true
 
 # JWT Configuration
-jwt.secret=${JWT_SECRET:change_this_secret_key_in_production}
+jwt.secret=${JWT_SECRET}
 jwt.expiration=${JWT_EXPIRATION:86400}
 
 # AWS S3 Configuration

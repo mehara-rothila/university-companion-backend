@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -22,6 +23,7 @@ public class TokenScheduler {
      * Runs every day at midnight
      */
     @Scheduled(cron = "0 0 0 * * *")  // Midnight every day
+    @Transactional
     public void resetDailyTokensForAllUsers() {
         System.out.println("🕐 Starting daily token reset for all users...");
 
@@ -36,7 +38,7 @@ public class TokenScheduler {
                 if (!usage.getUsageDate().equals(today)) {
                     usage.setUsageDate(today);
                     usage.setTokensUsed(0L);
-                    usage.setTokensRemaining(500000L);
+                    usage.setTokensRemaining(500000L); // Should match TokenService.DAILY_TOKEN_LIMIT
                     usage.setResetAt(java.time.LocalDateTime.now());
                     tokenUsageRepository.save(usage);
                     resetCount++;

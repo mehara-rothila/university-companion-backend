@@ -34,7 +34,27 @@ public class UserController {
         if (user == null) {
             return ResponseEntity.status(401).body("Unauthorized");
         }
-        return ResponseEntity.ok(user);
+        return ResponseEntity.ok(sanitizeUser(user));
+    }
+
+    private Map<String, Object> sanitizeUser(User user) {
+        Map<String, Object> sanitized = new HashMap<>();
+        sanitized.put("id", user.getId());
+        sanitized.put("username", user.getUsername());
+        sanitized.put("email", user.getEmail());
+        sanitized.put("firstName", user.getFirstName());
+        sanitized.put("lastName", user.getLastName());
+        sanitized.put("studentId", user.getStudentId());
+        sanitized.put("major", user.getMajor());
+        sanitized.put("year", user.getYear());
+        sanitized.put("role", user.getRole());
+        sanitized.put("imageUrl", user.getImageUrl());
+        sanitized.put("provider", user.getProvider());
+        sanitized.put("enabled", user.isEnabled());
+        sanitized.put("emailVerified", user.isEmailVerified());
+        sanitized.put("createdAt", user.getCreatedAt());
+        sanitized.put("updatedAt", user.getUpdatedAt());
+        return sanitized;
     }
     
     @PutMapping("/profile")
@@ -134,9 +154,10 @@ public class UserController {
     
     @GetMapping("/all")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<User>> getAllUsers() {
+    public ResponseEntity<List<Map<String, Object>>> getAllUsers() {
         List<User> users = userRepository.findAll();
-        return ResponseEntity.ok(users);
+        List<Map<String, Object>> sanitized = users.stream().map(this::sanitizeUser).toList();
+        return ResponseEntity.ok(sanitized);
     }
     
     @DeleteMapping("/{id}")

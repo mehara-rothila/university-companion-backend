@@ -122,14 +122,30 @@ public class FinancialAidController {
     
     @PutMapping("/applications/{id}")
     public ResponseEntity<?> updateApplication(@PathVariable Long id, 
-                                             @Valid @RequestBody FinancialAidRequest request) {
+                                             @Valid @RequestBody FinancialAidRequest request,
+                                             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         Optional<FinancialAid> applicationOpt = financialAidRepository.findById(id);
         
         if (!applicationOpt.isPresent()) {
             return ResponseEntity.notFound().build();
         }
-        
+
+        // Verify ownership or admin
+        User user = authUtils.getUserFromAuthHeader(authHeader);
+        if (user == null) {
+            return ResponseEntity.status(401).body("Authentication required");
+        }
+        boolean isAdmin = authUtils.isAdmin(authHeader);
         FinancialAid application = applicationOpt.get();
+        if (!isAdmin && !application.getApplicant().getId().equals(user.getId())) {
+            return ResponseEntity.status(403).body("Only the applicant or admin can update this application");
+        }
+        
+        // Only allow updates if status is DRAFT or PENDING
+        if (application.getStatus() != FinancialAid.ApplicationStatus.DRAFT && 
+            application.getStatus() != FinancialAid.ApplicationStatus.PENDING) {
+            return ResponseEntity.badRequest().body("Cannot update application after it has been reviewed");
+        }
         
         application.setTitle(request.getTitle());
         application.setDescription(request.getDescription());
@@ -150,11 +166,23 @@ public class FinancialAidController {
     }
     
     @DeleteMapping("/applications/{id}")
-    public ResponseEntity<?> deleteApplication(@PathVariable Long id) {
+    public ResponseEntity<?> deleteApplication(@PathVariable Long id,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         Optional<FinancialAid> applicationOpt = financialAidRepository.findById(id);
         
         if (!applicationOpt.isPresent()) {
             return ResponseEntity.notFound().build();
+        }
+
+        // Verify ownership or admin
+        User user = authUtils.getUserFromAuthHeader(authHeader);
+        if (user == null) {
+            return ResponseEntity.status(401).body("Authentication required");
+        }
+        boolean isAdmin = authUtils.isAdmin(authHeader);
+        FinancialAid application = applicationOpt.get();
+        if (!isAdmin && !application.getApplicant().getId().equals(user.getId())) {
+            return ResponseEntity.status(403).body("Only the applicant or admin can delete this application");
         }
         
         financialAidRepository.deleteById(id);

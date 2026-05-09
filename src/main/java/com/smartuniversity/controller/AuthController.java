@@ -189,10 +189,7 @@ public class AuthController {
 
         // Generate and send verification OTP
         String otp = generateOTP();
-        System.out.println("========================================");
         System.out.println("Generated Email Verification OTP for: " + user.getEmail());
-        System.out.println("OTP CODE: " + otp);
-        System.out.println("========================================");
 
         user.setEmailVerificationOtp(encoder.encode(otp));
         user.setEmailVerificationOtpExpiry(LocalDateTime.now().plusHours(1));
@@ -311,10 +308,7 @@ public class AuthController {
 
         // Generate new OTP
         String otp = generateOTP();
-        System.out.println("========================================");
         System.out.println("Resending Email Verification OTP for: " + user.getEmail());
-        System.out.println("OTP CODE: " + otp);
-        System.out.println("========================================");
 
         user.setEmailVerificationOtp(encoder.encode(otp));
         user.setEmailVerificationOtpExpiry(LocalDateTime.now().plusHours(1));
@@ -489,10 +483,7 @@ public class AuthController {
 
             // Generate 6-digit OTP
             String otp = generateOTP();
-            System.out.println("========================================");
             System.out.println("Generated OTP for user: " + user.getUsername());
-            System.out.println("OTP CODE: " + otp);
-            System.out.println("========================================");
 
             // Hash the OTP before storing (same as SRI_EXPRESS approach)
             String hashedOtp = encoder.encode(otp);

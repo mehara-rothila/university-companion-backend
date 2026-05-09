@@ -4,6 +4,7 @@ import com.smartuniversity.service.S3Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -23,6 +24,7 @@ import java.util.Map;
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/upload")
+@PreAuthorize("isAuthenticated()")
 public class ImageUploadController {
 
     @Autowired
@@ -76,6 +78,7 @@ public class ImageUploadController {
     }
 
     @GetMapping("/image/serve")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<?> serveImage(
             @RequestParam("url") String s3Url,
             @RequestParam(value = "quality", required = false, defaultValue = "medium") String quality,
@@ -278,6 +281,7 @@ public class ImageUploadController {
     }
 
     @GetMapping("/pdf/serve")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<?> servePdf(@RequestParam("url") String s3Url) {
         try {
             // Extract filename from S3 URL

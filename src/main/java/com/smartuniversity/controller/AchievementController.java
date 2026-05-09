@@ -26,7 +26,14 @@ public class AchievementController {
 
     // Create new achievement
     @PostMapping
-    public ResponseEntity<?> createAchievement(@RequestBody StudentAchievement achievement) {
+    public ResponseEntity<?> createAchievement(@RequestBody StudentAchievement achievement,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        User user = authUtils.getUserFromAuthHeader(authHeader);
+        if (user == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
+        // Set the authenticated user as the student
+        achievement.setStudentId(user.getId());
         try {
             StudentAchievement created = achievementService.createAchievement(achievement);
             return ResponseEntity.ok(Map.of(
@@ -203,7 +210,12 @@ public class AchievementController {
 
     // Like achievement
     @PostMapping("/{achievementId}/like")
-    public ResponseEntity<?> likeAchievement(@PathVariable Long achievementId) {
+    public ResponseEntity<?> likeAchievement(@PathVariable Long achievementId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        User user = authUtils.getUserFromAuthHeader(authHeader);
+        if (user == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
         try {
             achievementService.likeAchievement(achievementId);
             return ResponseEntity.ok(Map.of("message", "Achievement liked"));
@@ -214,7 +226,12 @@ public class AchievementController {
 
     // Unlike achievement
     @PostMapping("/{achievementId}/unlike")
-    public ResponseEntity<?> unlikeAchievement(@PathVariable Long achievementId) {
+    public ResponseEntity<?> unlikeAchievement(@PathVariable Long achievementId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        User user = authUtils.getUserFromAuthHeader(authHeader);
+        if (user == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
         try {
             achievementService.unlikeAchievement(achievementId);
             return ResponseEntity.ok(Map.of("message", "Achievement unliked"));
@@ -225,7 +242,12 @@ public class AchievementController {
 
     // Share achievement
     @PostMapping("/{achievementId}/share")
-    public ResponseEntity<?> shareAchievement(@PathVariable Long achievementId) {
+    public ResponseEntity<?> shareAchievement(@PathVariable Long achievementId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        User user = authUtils.getUserFromAuthHeader(authHeader);
+        if (user == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
         try {
             achievementService.shareAchievement(achievementId);
             return ResponseEntity.ok(Map.of("message", "Achievement shared"));
@@ -247,7 +269,12 @@ public class AchievementController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Comment text is required"));
             }
 
-            AchievementComment comment = achievementService.addComment(achievementId, userId, commentText);
+            User user = authUtils.getUserFromAuthHeader(authHeader);
+            if (user == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+
+            AchievementComment comment = achievementService.addComment(achievementId, user.getId(), commentText);
             return ResponseEntity.ok(Map.of(
                 "message", "Comment added successfully",
                 "commentId", comment.getId()

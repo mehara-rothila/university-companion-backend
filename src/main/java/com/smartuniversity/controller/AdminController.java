@@ -85,7 +85,7 @@ public class AdminController {
         }
         
         Map<String, Object> response = new HashMap<>();
-        response.put("users", users.getContent());
+        response.put("users", users.getContent().stream().map(this::sanitizeUser).toList());
         response.put("currentPage", users.getNumber());
         response.put("totalItems", users.getTotalElements());
         response.put("totalPages", users.getTotalPages());
@@ -102,7 +102,7 @@ public class AdminController {
     public ResponseEntity<?> getUserById(@PathVariable Long id) {
         Optional<User> user = userRepository.findById(id);
         if (user.isPresent()) {
-            return ResponseEntity.ok(user.get());
+            return ResponseEntity.ok(sanitizeUser(user.get()));
         }
         return ResponseEntity.notFound().build();
     }
@@ -177,16 +177,7 @@ public class AdminController {
             
             return ResponseEntity.ok(Map.of(
                 "message", "User created successfully",
-                "user", Map.of(
-                    "id", user.getId(),
-                    "email", user.getEmail(),
-                    "username", user.getUsername(),
-                    "firstName", user.getFirstName(),
-                    "lastName", user.getLastName(),
-                    "role", user.getRole().name(),
-                    "emailVerified", user.isEmailVerified(),
-                    "enabled", user.isEnabled()
-                )
+                "user", sanitizeUser(user)
             ));
             
         } catch (Exception e) {
@@ -245,7 +236,7 @@ public class AdminController {
 
         try {
             userRepository.save(existingUser);
-            return ResponseEntity.ok(Map.of("message", "User updated successfully", "user", existingUser));
+            return ResponseEntity.ok(Map.of("message", "User updated successfully", "user", sanitizeUser(existingUser)));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Failed to update user: " + e.getMessage()));
         }
@@ -286,7 +277,7 @@ public class AdminController {
             String status = user.isEnabled() ? "enabled" : "disabled";
             return ResponseEntity.ok(Map.of(
                 "message", "User " + status + " successfully",
-                "user", user
+                "user", sanitizeUser(user)
             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Failed to update user status: " + e.getMessage()));
@@ -319,6 +310,26 @@ public class AdminController {
         }
     }
     
+    private Map<String, Object> sanitizeUser(User user) {
+        Map<String, Object> sanitized = new HashMap<>();
+        sanitized.put("id", user.getId());
+        sanitized.put("username", user.getUsername());
+        sanitized.put("email", user.getEmail());
+        sanitized.put("firstName", user.getFirstName());
+        sanitized.put("lastName", user.getLastName());
+        sanitized.put("studentId", user.getStudentId());
+        sanitized.put("major", user.getMajor());
+        sanitized.put("year", user.getYear());
+        sanitized.put("role", user.getRole().name());
+        sanitized.put("imageUrl", user.getImageUrl());
+        sanitized.put("provider", user.getProvider());
+        sanitized.put("enabled", user.isEnabled());
+        sanitized.put("emailVerified", user.isEmailVerified());
+        sanitized.put("createdAt", user.getCreatedAt());
+        sanitized.put("updatedAt", user.getUpdatedAt());
+        return sanitized;
+    }
+
     /**
      * Bulk operations
      */

@@ -321,8 +321,14 @@ public class EventController {
 
     // Admin: Update event image only
     @PutMapping("/{id}/image")
-    public ResponseEntity<?> updateEventImage(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> updateEventImage(@PathVariable Long id, @RequestBody Map<String, String> body,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            // Verify admin role from JWT
+            if (!authUtils.isAdmin(authHeader)) {
+                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
+            }
+
             Event event = eventRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Event not found"));
 

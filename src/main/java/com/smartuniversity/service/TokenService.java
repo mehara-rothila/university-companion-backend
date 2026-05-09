@@ -61,6 +61,9 @@ public class TokenService {
      */
     @Transactional
     public boolean consumeTokens(Long userId, Long tokensToConsume, TokenTransaction.TransactionType type, String description) {
+        if (tokensToConsume == null || tokensToConsume <= 0) {
+            throw new IllegalArgumentException("tokensToConsume must be a positive number");
+        }
         TokenUsage usage = getOrCreateTokenUsageForToday(userId);
 
         if (!usage.consumeTokens(tokensToConsume)) {
@@ -87,7 +90,7 @@ public class TokenService {
     public boolean consumeTokensWithDetails(Long userId, Integer inputTokens, Integer outputTokens,
                                            TokenTransaction.TransactionType type, String description) {
         // Estimate total tokens: input + output
-        Long totalTokens = (long) (inputTokens + outputTokens);
+        Long totalTokens = (long) inputTokens + (long) outputTokens;
 
         TokenUsage usage = getOrCreateTokenUsageForToday(userId);
 
