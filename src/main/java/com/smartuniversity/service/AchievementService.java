@@ -226,11 +226,11 @@ public class AchievementService {
 
     // Delete comment
     @Transactional
-    public void deleteComment(Long commentId, Long userId) {
+    public void deleteComment(Long commentId, Long userId, boolean isAdmin) {
         AchievementComment comment = commentRepository.findById(commentId)
             .orElseThrow(() -> new RuntimeException("Comment not found"));
 
-        if (!comment.getUserId().equals(userId)) {
+        if (!comment.getUserId().equals(userId) && !isAdmin) {
             throw new RuntimeException("Unauthorized to delete this comment");
         }
 

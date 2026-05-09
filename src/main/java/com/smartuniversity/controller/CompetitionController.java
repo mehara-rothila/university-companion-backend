@@ -176,7 +176,7 @@ public class CompetitionController {
                 if (currentUser.getRole() == User.UserRole.FACULTY) {
                     competition.setStatus(ApprovalStatus.APPROVED);
                     competition.setApprovedAt(LocalDateTime.now());
-                    competition.setApprovedBy(userId);
+                    competition.setApprovedBy(currentUser.getId());
                 } else {
                     competition.setStatus(ApprovalStatus.PENDING);
                 }

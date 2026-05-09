@@ -140,6 +140,7 @@ public class AchievementController {
 
     // Admin: Approve achievement
     @PostMapping("/{achievementId}/approve")
+    @Transactional
     public ResponseEntity<?> approveAchievement(
             @PathVariable Long achievementId,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
@@ -159,6 +160,7 @@ public class AchievementController {
 
     // Admin: Reject achievement
     @PostMapping("/{achievementId}/reject")
+    @Transactional
     public ResponseEntity<?> rejectAchievement(
             @PathVariable Long achievementId,
             @RequestHeader(value = "Authorization", required = false) String authHeader,
@@ -180,6 +182,7 @@ public class AchievementController {
 
     // Admin: Hide achievement
     @PostMapping("/{achievementId}/hide")
+    @Transactional
     public ResponseEntity<?> hideAchievement(
             @PathVariable Long achievementId,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
@@ -198,6 +201,7 @@ public class AchievementController {
 
     // Admin: Unhide achievement
     @PostMapping("/{achievementId}/unhide")
+    @Transactional
     public ResponseEntity<?> unhideAchievement(
             @PathVariable Long achievementId,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
@@ -216,6 +220,7 @@ public class AchievementController {
 
     // Like achievement
     @PostMapping("/{achievementId}/like")
+    @Transactional
     public ResponseEntity<?> likeAchievement(@PathVariable Long achievementId,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         User user = authUtils.getUserFromAuthHeader(authHeader);
@@ -232,6 +237,7 @@ public class AchievementController {
 
     // Unlike achievement
     @PostMapping("/{achievementId}/unlike")
+    @Transactional
     public ResponseEntity<?> unlikeAchievement(@PathVariable Long achievementId,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         User user = authUtils.getUserFromAuthHeader(authHeader);
@@ -248,6 +254,7 @@ public class AchievementController {
 
     // Share achievement
     @PostMapping("/{achievementId}/share")
+    @Transactional
     public ResponseEntity<?> shareAchievement(@PathVariable Long achievementId,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         User user = authUtils.getUserFromAuthHeader(authHeader);
@@ -264,10 +271,11 @@ public class AchievementController {
 
     // Add comment
     @PostMapping("/{achievementId}/comments")
+    @Transactional
     public ResponseEntity<?> addComment(
         @PathVariable Long achievementId,
-        @RequestParam Long userId,
-        @RequestBody Map<String, String> data
+        @RequestBody Map<String, String> data,
+        @RequestHeader(value = "Authorization", required = false) String authHeader
     ) {
         try {
             String commentText = data.get("comment");
@@ -311,7 +319,8 @@ public class AchievementController {
             if (currentUser == null) {
                 return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
             }
-            achievementService.deleteComment(commentId, currentUser.getId());
+            boolean isAdmin = authUtils.isAdmin(authHeader);
+            achievementService.deleteComment(commentId, currentUser.getId(), isAdmin);
             return ResponseEntity.ok(Map.of("message", "Comment deleted successfully"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -320,6 +329,7 @@ public class AchievementController {
 
     // Update achievement
     @PutMapping("/{achievementId}")
+    @Transactional
     public ResponseEntity<?> updateAchievement(
         @PathVariable Long achievementId,
         @RequestBody StudentAchievement updatedData,
@@ -359,6 +369,7 @@ public class AchievementController {
 
     // Admin: Update achievement image
     @PutMapping("/{achievementId}/image")
+    @Transactional
     public ResponseEntity<?> updateAchievementImage(
             @PathVariable Long achievementId,
             @RequestHeader(value = "Authorization", required = false) String authHeader,

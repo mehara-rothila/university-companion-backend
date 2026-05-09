@@ -295,7 +295,7 @@ public class EventController {
                 if (currentUser.getRole() == User.UserRole.FACULTY) {
                     event.setStatus(ApprovalStatus.APPROVED);
                     event.setApprovedAt(LocalDateTime.now());
-                    event.setApprovedBy(userId);
+                    event.setApprovedBy(currentUser.getId());
                 } else {
                     event.setStatus(ApprovalStatus.PENDING);
                 }
@@ -696,8 +696,9 @@ public class EventController {
             EventComment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("Comment not found"));
 
-            // Check if user owns the comment
-            if (!comment.getUserId().equals(currentUser.getId())) {
+            // Check if user owns the comment or is admin
+            boolean isAdmin = authUtils.isAdmin(authHeader);
+            if (!comment.getUserId().equals(currentUser.getId()) && !isAdmin) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized"));
             }
 
