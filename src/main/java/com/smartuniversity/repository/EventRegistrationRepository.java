@@ -3,7 +3,11 @@ package com.smartuniversity.repository;
 import com.smartuniversity.model.EventRegistration;
 import com.smartuniversity.model.EventRegistration.RegistrationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +36,9 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
     // Find waitlisted users
     List<EventRegistration> findByEventIdAndStatusOrderByMovedToWaitlistAtAsc(Long eventId, RegistrationStatus status);
 
-    // Delete all registrations for an event
-    void deleteByEventId(Long eventId);
+    // Delete all registrations for an event (bulk DELETE, not N+1)
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM EventRegistration r WHERE r.eventId = :eventId")
+    void deleteByEventId(@Param("eventId") Long eventId);
 }

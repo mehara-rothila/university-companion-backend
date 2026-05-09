@@ -2,9 +2,11 @@ package com.smartuniversity.repository;
 
 import com.smartuniversity.model.EventAttendance;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +36,9 @@ public interface EventAttendanceRepository extends JpaRepository<EventAttendance
     // Delete attendance by event and user
     void deleteByEventIdAndUserId(Long eventId, Long userId);
 
-    // Delete all attendance for an event
-    void deleteByEventId(Long eventId);
+    // Delete all attendance for an event (bulk DELETE, not N+1)
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM EventAttendance a WHERE a.event.id = :eventId")
+    void deleteByEventId(@Param("eventId") Long eventId);
 }
