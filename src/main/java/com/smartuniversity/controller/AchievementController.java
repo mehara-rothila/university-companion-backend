@@ -7,6 +7,7 @@ import com.smartuniversity.service.AchievementService;
 import com.smartuniversity.util.AuthUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,6 +27,7 @@ public class AchievementController {
 
     // Create new achievement
     @PostMapping
+    @Transactional
     public ResponseEntity<?> createAchievement(@RequestBody StudentAchievement achievement,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         User user = authUtils.getUserFromAuthHeader(authHeader);
@@ -301,9 +303,15 @@ public class AchievementController {
 
     // Delete comment
     @DeleteMapping("/comments/{commentId}")
-    public ResponseEntity<?> deleteComment(@PathVariable Long commentId, @RequestParam Long userId) {
+    @Transactional
+    public ResponseEntity<?> deleteComment(@PathVariable Long commentId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            achievementService.deleteComment(commentId, userId);
+            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+            achievementService.deleteComment(commentId, currentUser.getId());
             return ResponseEntity.ok(Map.of("message", "Comment deleted successfully"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -314,11 +322,15 @@ public class AchievementController {
     @PutMapping("/{achievementId}")
     public ResponseEntity<?> updateAchievement(
         @PathVariable Long achievementId,
-        @RequestParam Long userId,
-        @RequestBody StudentAchievement updatedData
+        @RequestBody StudentAchievement updatedData,
+        @RequestHeader(value = "Authorization", required = false) String authHeader
     ) {
         try {
-            StudentAchievement updated = achievementService.updateAchievement(achievementId, updatedData, userId);
+            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+            StudentAchievement updated = achievementService.updateAchievement(achievementId, updatedData, currentUser.getId());
             return ResponseEntity.ok(Map.of(
                 "message", "Achievement updated successfully",
                 "achievement", updated
@@ -330,9 +342,15 @@ public class AchievementController {
 
     // Delete achievement
     @DeleteMapping("/{achievementId}")
-    public ResponseEntity<?> deleteAchievement(@PathVariable Long achievementId, @RequestParam Long userId) {
+    @Transactional
+    public ResponseEntity<?> deleteAchievement(@PathVariable Long achievementId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            achievementService.deleteAchievement(achievementId, userId);
+            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+            achievementService.deleteAchievement(achievementId, currentUser.getId());
             return ResponseEntity.ok(Map.of("message", "Achievement deleted successfully"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

@@ -314,6 +314,46 @@ public class ImageUploadController {
         );
     }
 
+    @PostMapping("/video")
+    public ResponseEntity<?> uploadVideo(@RequestParam("file") MultipartFile file) {
+        try {
+            // Validate file type
+            if (!isValidVideoFile(file)) {
+                return ResponseEntity.badRequest().body("Only video files (mp4, webm, mov) are allowed");
+            }
+
+            // Validate file size (max 100MB)
+            if (file.getSize() > 100 * 1024 * 1024) {
+                return ResponseEntity.badRequest().body("File size cannot exceed 100MB");
+            }
+
+            String videoUrl = s3Service.uploadFile(file, "videos");
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("videoUrl", videoUrl);
+            response.put("fileSize", file.getSize());
+            response.put("message", "Video uploaded successfully");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to upload video: " + e.getMessage());
+        }
+    }
+
+    private boolean isValidVideoFile(MultipartFile file) {
+        String contentType = file.getContentType();
+        String fileName = file.getOriginalFilename();
+        return contentType != null && (
+                contentType.equals("video/mp4") ||
+                contentType.equals("video/webm") ||
+                contentType.equals("video/quicktime")
+        ) && fileName != null && (
+                fileName.toLowerCase().endsWith(".mp4") ||
+                fileName.toLowerCase().endsWith(".webm") ||
+                fileName.toLowerCase().endsWith(".mov")
+        );
+    }
+
     private boolean isValidPdfFile(MultipartFile file) {
         String contentType = file.getContentType();
         String fileName = file.getOriginalFilename();

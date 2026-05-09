@@ -13,6 +13,7 @@ import com.smartuniversity.repository.UserRepository;
 import com.smartuniversity.util.AuthUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -43,9 +44,16 @@ public class EventController {
 
     // Create a new event
     @PostMapping
-    public ResponseEntity<?> createEvent(@RequestBody Map<String, Object> eventData) {
+    @Transactional
+    public ResponseEntity<?> createEvent(@RequestBody Map<String, Object> eventData,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            Long creatorId = Long.valueOf(eventData.get("creatorId").toString());
+            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+            // Security: use authenticated user's ID, ignore any creatorId sent by client
+            Long creatorId = currentUser.getId();
 
             Event event = new Event();
             event.setTitle((String) eventData.get("title"));
@@ -68,13 +76,26 @@ public class EventController {
             ));
 
             if (eventData.containsKey("registrationDeadline") && eventData.get("registrationDeadline") != null) {
-                event.setRegistrationDeadline(LocalDateTime.parse(
+                LocalDateTime registrationDeadline = LocalDateTime.parse(
                     ((String) eventData.get("registrationDeadline")).replace("Z", "")
-                ));
+                );
+                if (registrationDeadline.isAfter(event.getEventDate())) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Registration deadline must be before event date"));
+                }
+                event.setRegistrationDeadline(registrationDeadline);
+            }
+
+            // Validate dates
+            if (event.getEventDate().isAfter(event.getEndTime())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Event date must be before end time"));
             }
 
             if (eventData.containsKey("maxAttendees") && eventData.get("maxAttendees") != null) {
-                event.setMaxAttendees(Integer.valueOf(eventData.get("maxAttendees").toString()));
+                Integer maxAttendees = Integer.valueOf(eventData.get("maxAttendees").toString());
+                if (maxAttendees != null && maxAttendees < 0) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "maxAttendees cannot be negative"));
+                }
+                event.setMaxAttendees(maxAttendees);
             }
 
             if (eventData.containsKey("isRecurring") && eventData.get("isRecurring") != null) {
@@ -86,12 +107,11 @@ public class EventController {
             }
 
             // Faculty auto-approval: Faculty members are Verified Creators
-            User creator = userRepository.findById(creatorId).orElse(null);
             String message;
-            if (creator != null && creator.getRole() == User.UserRole.FACULTY) {
+            if (currentUser.getRole() == User.UserRole.FACULTY) {
                 event.setStatus(ApprovalStatus.APPROVED);
                 event.setApprovedAt(LocalDateTime.now());
-                event.setApprovedBy(creatorId); // Self-approved as Verified Creator
+                event.setApprovedBy(creatorId);
                 message = "Event created and auto-approved (Faculty Verified Creator)";
             } else {
                 message = "Event created successfully and pending approval";
@@ -247,14 +267,19 @@ public class EventController {
 
     // Update event (only creator can edit)
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateEvent(@PathVariable Long id, @RequestBody Map<String, Object> eventData) {
+    @Transactional
+    public ResponseEntity<?> updateEvent(@PathVariable Long id, @RequestBody Map<String, Object> eventData,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
             Event event = eventRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Event not found"));
 
             // Check if user is the creator
-            Long userId = Long.valueOf(eventData.get("userId").toString());
-            if (!event.getCreatorId().equals(userId)) {
+            if (!event.getCreatorId().equals(currentUser.getId())) {
                 return ResponseEntity.status(403).body(Map.of("error", "Only the event creator can edit this event"));
             }
 
@@ -267,8 +292,7 @@ public class EventController {
             boolean wasRejected = event.getStatus() == ApprovalStatus.REJECTED;
             if (wasRejected) {
                 // Check if creator is Faculty - auto-approve on resubmit
-                User creator = userRepository.findById(userId).orElse(null);
-                if (creator != null && creator.getRole() == User.UserRole.FACULTY) {
+                if (currentUser.getRole() == User.UserRole.FACULTY) {
                     event.setStatus(ApprovalStatus.APPROVED);
                     event.setApprovedAt(LocalDateTime.now());
                     event.setApprovedBy(userId);
@@ -302,7 +326,11 @@ public class EventController {
                 event.setRegistrationDeadline(LocalDateTime.parse(((String) eventData.get("registrationDeadline")).replace("Z", "")));
             }
             if (eventData.containsKey("maxAttendees")) {
-                event.setMaxAttendees(eventData.get("maxAttendees") != null ? Integer.valueOf(eventData.get("maxAttendees").toString()) : null);
+                Integer maxAttendees = eventData.get("maxAttendees") != null ? Integer.valueOf(eventData.get("maxAttendees").toString()) : null;
+                if (maxAttendees != null && maxAttendees < 0) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "maxAttendees cannot be negative"));
+                }
+                event.setMaxAttendees(maxAttendees);
             }
 
             Event savedEvent = eventRepository.save(event);
@@ -348,13 +376,19 @@ public class EventController {
 
     // Delete event (only creator can delete, only if PENDING)
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteEvent(@PathVariable Long id, @RequestParam Long userId) {
+    @Transactional
+    public ResponseEntity<?> deleteEvent(@PathVariable Long id,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
             Event event = eventRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Event not found"));
 
             // Check if user is the creator
-            if (!event.getCreatorId().equals(userId)) {
+            if (!event.getCreatorId().equals(currentUser.getId())) {
                 return ResponseEntity.status(403).body(Map.of("error", "Only the event creator can delete this event"));
             }
 
@@ -373,9 +407,15 @@ public class EventController {
 
     // Register for event
     @PostMapping("/{eventId}/register")
-    public ResponseEntity<?> registerForEvent(@PathVariable Long eventId, @RequestBody Map<String, Object> registrationData) {
+    @Transactional
+    public ResponseEntity<?> registerForEvent(@PathVariable Long eventId, @RequestBody Map<String, Object> registrationData,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            Long userId = Long.valueOf(registrationData.get("userId").toString());
+            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+            Long userId = currentUser.getId();
 
             // Check if event exists and is approved
             Event event = eventRepository.findById(eventId)
@@ -440,9 +480,15 @@ public class EventController {
 
     // Cancel registration
     @PostMapping("/{eventId}/cancel-registration")
-    public ResponseEntity<?> cancelRegistration(@PathVariable Long eventId, @RequestParam Long userId) {
+    @Transactional
+    public ResponseEntity<?> cancelRegistration(@PathVariable Long eventId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            EventRegistration registration = registrationRepository.findByEventIdAndUserId(eventId, userId)
+            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+            EventRegistration registration = registrationRepository.findByEventIdAndUserId(eventId, currentUser.getId())
                 .orElseThrow(() -> new RuntimeException("Registration not found"));
 
             if (registration.getStatus() == RegistrationStatus.CANCELLED) {
@@ -640,13 +686,18 @@ public class EventController {
 
     // Delete comment (soft delete)
     @DeleteMapping("/{eventId}/comments/{commentId}")
-    public ResponseEntity<?> deleteComment(@PathVariable Long eventId, @PathVariable Long commentId, @RequestParam Long userId) {
+    public ResponseEntity<?> deleteComment(@PathVariable Long eventId, @PathVariable Long commentId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
             EventComment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("Comment not found"));
 
             // Check if user owns the comment
-            if (!comment.getUserId().equals(userId)) {
+            if (!comment.getUserId().equals(currentUser.getId())) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized"));
             }
 

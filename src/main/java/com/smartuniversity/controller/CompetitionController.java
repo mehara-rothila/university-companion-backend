@@ -17,6 +17,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -48,9 +49,16 @@ public class CompetitionController {
 
     // Create a new competition
     @PostMapping
-    public ResponseEntity<?> createCompetition(@RequestBody Map<String, Object> competitionData) {
+    @Transactional
+    public ResponseEntity<?> createCompetition(@RequestBody Map<String, Object> competitionData,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            Long organizerId = Long.valueOf(competitionData.get("organizerId").toString());
+            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+            // Security: use authenticated user's ID, ignore any organizerId sent by client
+            Long organizerId = currentUser.getId();
 
             Competition competition = new Competition();
             competition.setTitle((String) competitionData.get("title"));
@@ -70,13 +78,26 @@ public class CompetitionController {
             ));
 
             if (competitionData.containsKey("registrationDeadline") && competitionData.get("registrationDeadline") != null) {
-                competition.setRegistrationDeadline(LocalDateTime.parse(
+                LocalDateTime registrationDeadline = LocalDateTime.parse(
                     ((String) competitionData.get("registrationDeadline")).replace("Z", "")
-                ));
+                );
+                if (registrationDeadline.isAfter(competition.getStartDate())) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Registration deadline must be before start date"));
+                }
+                competition.setRegistrationDeadline(registrationDeadline);
+            }
+
+            // Validate dates
+            if (competition.getStartDate().isAfter(competition.getEndDate())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Start date must be before end date"));
             }
 
             if (competitionData.containsKey("maxParticipants") && competitionData.get("maxParticipants") != null) {
-                competition.setMaxParticipants(Integer.valueOf(competitionData.get("maxParticipants").toString()));
+                Integer maxParticipants = Integer.valueOf(competitionData.get("maxParticipants").toString());
+                if (maxParticipants != null && maxParticipants < 0) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "maxParticipants cannot be negative"));
+                }
+                competition.setMaxParticipants(maxParticipants);
             }
 
             competition.setInternalEnrollmentEnabled(Boolean.parseBoolean(competitionData.get("internalEnrollmentEnabled").toString()));
@@ -91,12 +112,11 @@ public class CompetitionController {
             competition.setExternalEnrollmentUrl(externalUrl);
 
             // Faculty auto-approval: Faculty members are Verified Creators
-            User organizer = userRepository.findById(organizerId).orElse(null);
             String message;
-            if (organizer != null && organizer.getRole() == User.UserRole.FACULTY) {
+            if (currentUser.getRole() == User.UserRole.FACULTY) {
                 competition.setStatus(ApprovalStatus.APPROVED);
                 competition.setApprovedAt(LocalDateTime.now());
-                competition.setApprovedBy(organizerId); // Self-approved as Verified Creator
+                competition.setApprovedBy(organizerId);
                 message = "Competition created and auto-approved (Faculty Verified Creator)";
             } else {
                 message = "Competition created successfully and pending approval";
@@ -128,14 +148,19 @@ public class CompetitionController {
 
     // Update competition (only organizer can edit)
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateCompetition(@PathVariable Long id, @RequestBody Map<String, Object> competitionData) {
+    @Transactional
+    public ResponseEntity<?> updateCompetition(@PathVariable Long id, @RequestBody Map<String, Object> competitionData,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
             Competition competition = competitionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Competition not found"));
 
             // Check if user is the organizer
-            Long userId = Long.valueOf(competitionData.get("userId").toString());
-            if (!competition.getOrganizerId().equals(userId)) {
+            if (!competition.getOrganizerId().equals(currentUser.getId())) {
                 return ResponseEntity.status(403).body(Map.of("error", "Only the competition organizer can edit this competition"));
             }
 
@@ -148,8 +173,7 @@ public class CompetitionController {
             boolean wasRejected = competition.getStatus() == ApprovalStatus.REJECTED;
             if (wasRejected) {
                 // Check if organizer is Faculty - auto-approve on resubmit
-                User organizer = userRepository.findById(userId).orElse(null);
-                if (organizer != null && organizer.getRole() == User.UserRole.FACULTY) {
+                if (currentUser.getRole() == User.UserRole.FACULTY) {
                     competition.setStatus(ApprovalStatus.APPROVED);
                     competition.setApprovedAt(LocalDateTime.now());
                     competition.setApprovedBy(userId);
@@ -180,7 +204,11 @@ public class CompetitionController {
                 competition.setRegistrationDeadline(LocalDateTime.parse(((String) competitionData.get("registrationDeadline")).replace("Z", "")));
             }
             if (competitionData.containsKey("maxParticipants")) {
-                competition.setMaxParticipants(competitionData.get("maxParticipants") != null ? Integer.valueOf(competitionData.get("maxParticipants").toString()) : null);
+                Integer maxParticipants = competitionData.get("maxParticipants") != null ? Integer.valueOf(competitionData.get("maxParticipants").toString()) : null;
+                if (maxParticipants != null && maxParticipants < 0) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "maxParticipants cannot be negative"));
+                }
+                competition.setMaxParticipants(maxParticipants);
             }
 
             Competition savedCompetition = competitionRepository.save(competition);
@@ -294,9 +322,15 @@ public class CompetitionController {
 
     // Enroll in competition
     @PostMapping("/{competitionId}/enroll")
-    public ResponseEntity<?> enrollInCompetition(@PathVariable Long competitionId, @RequestBody Map<String, Object> enrollmentData) {
+    @Transactional
+    public ResponseEntity<?> enrollInCompetition(@PathVariable Long competitionId, @RequestBody Map<String, Object> enrollmentData,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            Long userId = Long.valueOf(enrollmentData.get("userId").toString());
+            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+            Long userId = currentUser.getId();
 
             // Check if competition exists and is approved
             Competition competition = competitionRepository.findById(competitionId)
@@ -346,9 +380,15 @@ public class CompetitionController {
 
     // Withdraw from competition
     @PostMapping("/{competitionId}/withdraw")
-    public ResponseEntity<?> withdrawFromCompetition(@PathVariable Long competitionId, @RequestParam Long userId) {
+    @Transactional
+    public ResponseEntity<?> withdrawFromCompetition(@PathVariable Long competitionId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            CompetitionEnrollment enrollment = enrollmentRepository.findByCompetitionIdAndUserId(competitionId, userId)
+            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+            CompetitionEnrollment enrollment = enrollmentRepository.findByCompetitionIdAndUserId(competitionId, currentUser.getId())
                 .orElseThrow(() -> new RuntimeException("Enrollment not found"));
 
             if (enrollment.getStatus() == EnrollmentStatus.WITHDRAWN) {
