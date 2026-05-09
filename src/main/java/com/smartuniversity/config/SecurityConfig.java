@@ -67,7 +67,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/achievements/{id}").permitAll()
                 .requestMatchers("/api/competitions/approved").permitAll()
                 .requestMatchers("/api/competitions/{id}").permitAll()
-                .requestMatchers("/api/financial-aid/donations").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/financial-aid/donations").permitAll()
                 .requestMatchers("/api/payment/webhook").permitAll() // Stripe webhook (signature-verified)
                 .requestMatchers("/api/payment/**").authenticated() // Payment endpoints require auth
                 .requestMatchers("/api/weather/current").permitAll()

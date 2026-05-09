@@ -32,8 +32,12 @@ public class AchievementController {
         if (user == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
         }
-        // Set the authenticated user as the student
-        achievement.setStudentId(user.getId());
+        // Security: prevent student ID impersonation.
+        // Non-admins can only create achievements for themselves.
+        // Admins may optionally pass a studentId to create on behalf of a student.
+        if (!authUtils.isAdmin(authHeader) || achievement.getStudentId() == null) {
+            achievement.setStudentId(user.getId());
+        }
         try {
             StudentAchievement created = achievementService.createAchievement(achievement);
             return ResponseEntity.ok(Map.of(
