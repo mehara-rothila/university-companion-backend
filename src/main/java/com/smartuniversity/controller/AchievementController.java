@@ -16,7 +16,6 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/achievements")
-
 public class AchievementController {
 
     @Autowired
@@ -40,174 +39,70 @@ public class AchievementController {
         if (!authUtils.isAdmin(authHeader) || achievement.getStudentId() == null) {
             achievement.setStudentId(user.getId());
         }
-        try {
-            StudentAchievement created = achievementService.createAchievement(achievement);
-            return ResponseEntity.ok(Map.of(
-                "message", "Achievement submitted successfully and is pending approval",
-                "achievementId", created.getId()
-            ));
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-        }
+        StudentAchievement created = achievementService.createAchievement(achievement);
+        return ResponseEntity.ok(Map.of(
+            "message", "Achievement submitted successfully and is pending approval",
+            "achievementId", created.getId()
+        ));
     }
 
     // Get all approved achievements (social feed)
     @GetMapping("/approved")
     public ResponseEntity<?> getApprovedAchievements() {
-        try {
-            List<Map<String, Object>> achievements = achievementService.getApprovedAchievements();
-            return ResponseEntity.ok(achievements);
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-        }
+        List<Map<String, Object>> achievements = achievementService.getApprovedAchievements();
+        return ResponseEntity.ok(achievements);
     }
 
     // Get approved achievements by category
     @GetMapping("/approved/category/{category}")
     public ResponseEntity<?> getApprovedAchievementsByCategory(@PathVariable String category) {
-        try {
-            List<Map<String, Object>> achievements = achievementService.getApprovedAchievementsByCategory(category);
-            return ResponseEntity.ok(achievements);
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-        }
+        List<Map<String, Object>> achievements = achievementService.getApprovedAchievementsByCategory(category);
+        return ResponseEntity.ok(achievements);
     }
 
     // Get achievements by student
     @GetMapping("/student/{studentId}")
     public ResponseEntity<?> getAchievementsByStudent(@PathVariable Long studentId) {
-        try {
-            List<Map<String, Object>> achievements = achievementService.getAchievementsByStudent(studentId);
-            return ResponseEntity.ok(achievements);
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-        }
+        List<Map<String, Object>> achievements = achievementService.getAchievementsByStudent(studentId);
+        return ResponseEntity.ok(achievements);
     }
 
     // Get achievement by ID
     @GetMapping("/{id}")
     public ResponseEntity<?> getAchievementById(@PathVariable Long id) {
-        try {
-            Optional<Map<String, Object>> achievement = achievementService.getAchievementById(id);
-            if (achievement.isPresent()) {
-                return ResponseEntity.ok(achievement.get());
-            } else {
-                return ResponseEntity.notFound().build();
-            }
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        Optional<Map<String, Object>> achievement = achievementService.getAchievementById(id);
+        if (achievement.isPresent()) {
+            return ResponseEntity.ok(achievement.get());
+        } else {
+            return ResponseEntity.notFound().build();
         }
     }
 
     // Get popular achievements
     @GetMapping("/popular")
     public ResponseEntity<?> getPopularAchievements() {
-        try {
-            List<Map<String, Object>> achievements = achievementService.getPopularAchievements();
-            return ResponseEntity.ok(achievements);
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-        }
+        List<Map<String, Object>> achievements = achievementService.getPopularAchievements();
+        return ResponseEntity.ok(achievements);
     }
 
     // Get recent achievements
     @GetMapping("/recent")
     public ResponseEntity<?> getRecentAchievements() {
-        try {
-            List<Map<String, Object>> achievements = achievementService.getRecentAchievements();
-            return ResponseEntity.ok(achievements);
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-        }
+        List<Map<String, Object>> achievements = achievementService.getRecentAchievements();
+        return ResponseEntity.ok(achievements);
     }
 
     // Admin: Get pending achievements
     @GetMapping("/admin/pending")
     public ResponseEntity<?> getPendingAchievements(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        try {
-            // Verify admin role from JWT
-            if (!authUtils.isAdmin(authHeader)) {
-                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
-            }
-
-            List<Map<String, Object>> achievements = achievementService.getPendingAchievements();
-            return ResponseEntity.ok(achievements);
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        // Verify admin role from JWT
+        if (!authUtils.isAdmin(authHeader)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
         }
+
+        List<Map<String, Object>> achievements = achievementService.getPendingAchievements();
+        return ResponseEntity.ok(achievements);
     }
 
     // Admin: Approve achievement
@@ -216,27 +111,14 @@ public class AchievementController {
     public ResponseEntity<?> approveAchievement(
             @PathVariable Long achievementId,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        try {
-            // Verify admin role from JWT
-            User admin = authUtils.getAdminFromAuthHeader(authHeader);
-            if (admin == null) {
-                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
-            }
-
-            achievementService.approveAchievement(achievementId, admin.getId());
-            return ResponseEntity.ok(Map.of("message", "Achievement approved successfully"));
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        // Verify admin role from JWT
+        User admin = authUtils.getAdminFromAuthHeader(authHeader);
+        if (admin == null) {
+            return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
         }
+
+        achievementService.approveAchievement(achievementId, admin.getId());
+        return ResponseEntity.ok(Map.of("message", "Achievement approved successfully"));
     }
 
     // Admin: Reject achievement
@@ -246,28 +128,15 @@ public class AchievementController {
             @PathVariable Long achievementId,
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody Map<String, String> data) {
-        try {
-            // Verify admin role from JWT
-            User admin = authUtils.getAdminFromAuthHeader(authHeader);
-            if (admin == null) {
-                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
-            }
-
-            String reason = data.get("reason");
-            achievementService.rejectAchievement(achievementId, admin.getId(), reason);
-            return ResponseEntity.ok(Map.of("message", "Achievement rejected"));
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        // Verify admin role from JWT
+        User admin = authUtils.getAdminFromAuthHeader(authHeader);
+        if (admin == null) {
+            return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
         }
+
+        String reason = data.get("reason");
+        achievementService.rejectAchievement(achievementId, admin.getId(), reason);
+        return ResponseEntity.ok(Map.of("message", "Achievement rejected"));
     }
 
     // Admin: Hide achievement
@@ -276,26 +145,13 @@ public class AchievementController {
     public ResponseEntity<?> hideAchievement(
             @PathVariable Long achievementId,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        try {
-            // Verify admin role from JWT
-            if (!authUtils.isAdmin(authHeader)) {
-                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
-            }
-
-            achievementService.hideAchievement(achievementId);
-            return ResponseEntity.ok(Map.of("message", "Achievement hidden successfully"));
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        // Verify admin role from JWT
+        if (!authUtils.isAdmin(authHeader)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
         }
+
+        achievementService.hideAchievement(achievementId);
+        return ResponseEntity.ok(Map.of("message", "Achievement hidden successfully"));
     }
 
     // Admin: Unhide achievement
@@ -304,26 +160,13 @@ public class AchievementController {
     public ResponseEntity<?> unhideAchievement(
             @PathVariable Long achievementId,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        try {
-            // Verify admin role from JWT
-            if (!authUtils.isAdmin(authHeader)) {
-                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
-            }
-
-            achievementService.unhideAchievement(achievementId);
-            return ResponseEntity.ok(Map.of("message", "Achievement unhidden successfully"));
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        // Verify admin role from JWT
+        if (!authUtils.isAdmin(authHeader)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
         }
+
+        achievementService.unhideAchievement(achievementId);
+        return ResponseEntity.ok(Map.of("message", "Achievement unhidden successfully"));
     }
 
     // Like achievement
@@ -335,21 +178,8 @@ public class AchievementController {
         if (user == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
         }
-        try {
-            achievementService.likeAchievement(achievementId);
-            return ResponseEntity.ok(Map.of("message", "Achievement liked"));
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-        }
+        achievementService.likeAchievement(achievementId);
+        return ResponseEntity.ok(Map.of("message", "Achievement liked"));
     }
 
     // Unlike achievement
@@ -361,21 +191,8 @@ public class AchievementController {
         if (user == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
         }
-        try {
-            achievementService.unlikeAchievement(achievementId);
-            return ResponseEntity.ok(Map.of("message", "Achievement unliked"));
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-        }
+        achievementService.unlikeAchievement(achievementId);
+        return ResponseEntity.ok(Map.of("message", "Achievement unliked"));
     }
 
     // Share achievement
@@ -387,21 +204,8 @@ public class AchievementController {
         if (user == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
         }
-        try {
-            achievementService.shareAchievement(achievementId);
-            return ResponseEntity.ok(Map.of("message", "Achievement shared"));
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-        }
+        achievementService.shareAchievement(achievementId);
+        return ResponseEntity.ok(Map.of("message", "Achievement shared"));
     }
 
     // Add comment
@@ -412,54 +216,28 @@ public class AchievementController {
         @RequestBody Map<String, String> data,
         @RequestHeader(value = "Authorization", required = false) String authHeader
     ) {
-        try {
-            String commentText = data.get("comment");
-            if (commentText == null || commentText.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Comment text is required"));
-            }
-
-            User user = authUtils.getUserFromAuthHeader(authHeader);
-            if (user == null) {
-                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
-            }
-
-            AchievementComment comment = achievementService.addComment(achievementId, user.getId(), commentText);
-            return ResponseEntity.ok(Map.of(
-                "message", "Comment added successfully",
-                "commentId", comment.getId()
-            ));
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        String commentText = data.get("comment");
+        if (commentText == null || commentText.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Comment text is required"));
         }
+
+        User user = authUtils.getUserFromAuthHeader(authHeader);
+        if (user == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
+
+        AchievementComment comment = achievementService.addComment(achievementId, user.getId(), commentText);
+        return ResponseEntity.ok(Map.of(
+            "message", "Comment added successfully",
+            "commentId", comment.getId()
+        ));
     }
 
     // Get comments for achievement
     @GetMapping("/{achievementId}/comments")
     public ResponseEntity<?> getComments(@PathVariable Long achievementId) {
-        try {
-            List<Map<String, Object>> comments = achievementService.getAchievementComments(achievementId);
-            return ResponseEntity.ok(comments);
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-        }
+        List<Map<String, Object>> comments = achievementService.getAchievementComments(achievementId);
+        return ResponseEntity.ok(comments);
     }
 
     // Delete comment
@@ -467,26 +245,13 @@ public class AchievementController {
     @Transactional
     public ResponseEntity<?> deleteComment(@PathVariable Long commentId,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        try {
-            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
-            if (currentUser == null) {
-                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
-            }
-            boolean isAdmin = authUtils.isAdmin(authHeader);
-            achievementService.deleteComment(commentId, currentUser.getId(), isAdmin);
-            return ResponseEntity.ok(Map.of("message", "Comment deleted successfully"));
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
         }
+        boolean isAdmin = authUtils.isAdmin(authHeader);
+        achievementService.deleteComment(commentId, currentUser.getId(), isAdmin);
+        return ResponseEntity.ok(Map.of("message", "Comment deleted successfully"));
     }
 
     // Update achievement
@@ -497,28 +262,15 @@ public class AchievementController {
         @RequestBody StudentAchievement updatedData,
         @RequestHeader(value = "Authorization", required = false) String authHeader
     ) {
-        try {
-            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
-            if (currentUser == null) {
-                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
-            }
-            StudentAchievement updated = achievementService.updateAchievement(achievementId, updatedData, currentUser.getId());
-            return ResponseEntity.ok(Map.of(
-                "message", "Achievement updated successfully",
-                "achievement", updated
-            ));
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
         }
+        StudentAchievement updated = achievementService.updateAchievement(achievementId, updatedData, currentUser.getId());
+        return ResponseEntity.ok(Map.of(
+            "message", "Achievement updated successfully",
+            "achievement", updated
+        ));
     }
 
     // Delete achievement
@@ -526,25 +278,12 @@ public class AchievementController {
     @Transactional
     public ResponseEntity<?> deleteAchievement(@PathVariable Long achievementId,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        try {
-            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
-            if (currentUser == null) {
-                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
-            }
-            achievementService.deleteAchievement(achievementId, currentUser.getId());
-            return ResponseEntity.ok(Map.of("message", "Achievement deleted successfully"));
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
         }
+        achievementService.deleteAchievement(achievementId, currentUser.getId());
+        return ResponseEntity.ok(Map.of("message", "Achievement deleted successfully"));
     }
 
     // Admin: Update achievement image
@@ -554,26 +293,13 @@ public class AchievementController {
             @PathVariable Long achievementId,
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody Map<String, String> data) {
-        try {
-            // Verify admin role from JWT
-            if (!authUtils.isAdmin(authHeader)) {
-                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
-            }
-
-            String imageUrl = data.get("imageUrl");
-            achievementService.updateAchievementImage(achievementId, imageUrl);
-            return ResponseEntity.ok(Map.of("message", "Achievement image updated successfully"));
-        } catch (RuntimeException e) {
-            String msg = e.getMessage();
-            if (msg != null && msg.toLowerCase().contains("not found")) {
-                return ResponseEntity.status(404).body(Map.of("error", msg));
-            }
-            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
-                return ResponseEntity.status(401).body(Map.of("error", msg));
-            }
-            return ResponseEntity.badRequest().body(Map.of("error", msg));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        // Verify admin role from JWT
+        if (!authUtils.isAdmin(authHeader)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Unauthorized - Admin access required"));
         }
+
+        String imageUrl = data.get("imageUrl");
+        achievementService.updateAchievementImage(achievementId, imageUrl);
+        return ResponseEntity.ok(Map.of("message", "Achievement image updated successfully"));
     }
 }
