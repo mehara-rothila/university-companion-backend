@@ -24,7 +24,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
+
 @RestController
 @RequestMapping("/api/competitions")
 public class CompetitionController {
@@ -141,8 +141,17 @@ public class CompetitionController {
             }
 
             return ResponseEntity.ok(Map.of("id", savedCompetition.getId(), "message", message, "status", savedCompetition.getStatus().toString()));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", "Failed to create competition: " + msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Failed to create competition: " + e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -220,8 +229,17 @@ public class CompetitionController {
                 "Competition updated successfully";
 
             return ResponseEntity.ok(Map.of("message", message, "status", savedCompetition.getStatus().toString()));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -242,8 +260,17 @@ public class CompetitionController {
             }
 
             return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -263,8 +290,17 @@ public class CompetitionController {
             }
 
             return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -290,8 +326,17 @@ public class CompetitionController {
             competitionRepository.save(competition);
 
             return ResponseEntity.ok(Map.of("message", "Competition image updated successfully", "imageUrl", imageUrl));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -315,8 +360,17 @@ public class CompetitionController {
             }
 
             return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -373,8 +427,17 @@ public class CompetitionController {
             enrollmentRepository.save(enrollment);
 
             return ResponseEntity.ok(Map.of("message", "Successfully enrolled in competition"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -400,8 +463,17 @@ public class CompetitionController {
             enrollmentRepository.save(enrollment);
 
             return ResponseEntity.ok(Map.of("message", "Successfully withdrawn from competition"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -445,8 +517,17 @@ public class CompetitionController {
             }
 
             return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -495,8 +576,17 @@ public class CompetitionController {
             headers.setContentDispositionFormData("attachment", "enrollments_" + competitionId + ".csv");
 
             return new ResponseEntity<>(csv.toString(), headers, HttpStatus.OK);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -510,8 +600,17 @@ public class CompetitionController {
                 EnrollmentStatus.ENROLLED
             );
             return ResponseEntity.ok(Map.of("isEnrolled", isEnrolled));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -542,8 +641,17 @@ public class CompetitionController {
             }
 
             return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -573,8 +681,17 @@ public class CompetitionController {
             competitionRepository.save(competition);
 
             return ResponseEntity.ok(Map.of("message", "Competition approved successfully"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -612,8 +729,17 @@ public class CompetitionController {
             competitionRepository.save(competition);
 
             return ResponseEntity.ok(Map.of("message", "Competition rejected"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -635,8 +761,17 @@ public class CompetitionController {
             competitionRepository.save(competition);
 
             return ResponseEntity.ok(Map.of("message", "Competition hidden successfully"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -658,8 +793,17 @@ public class CompetitionController {
             competitionRepository.save(competition);
 
             return ResponseEntity.ok(Map.of("message", "Competition unhidden successfully"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -697,8 +841,17 @@ public class CompetitionController {
             }
 
             return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -726,8 +879,17 @@ public class CompetitionController {
             competitionRepository.delete(competition);
 
             return ResponseEntity.ok(Map.of("message", "Competition deleted successfully"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 

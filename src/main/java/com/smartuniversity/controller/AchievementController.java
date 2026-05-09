@@ -16,7 +16,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/achievements")
-@CrossOrigin(origins = "*")
+
 public class AchievementController {
 
     @Autowired
@@ -46,8 +46,17 @@ public class AchievementController {
                 "message", "Achievement submitted successfully and is pending approval",
                 "achievementId", created.getId()
             ));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -57,8 +66,17 @@ public class AchievementController {
         try {
             List<Map<String, Object>> achievements = achievementService.getApprovedAchievements();
             return ResponseEntity.ok(achievements);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -68,8 +86,17 @@ public class AchievementController {
         try {
             List<Map<String, Object>> achievements = achievementService.getApprovedAchievementsByCategory(category);
             return ResponseEntity.ok(achievements);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -79,8 +106,17 @@ public class AchievementController {
         try {
             List<Map<String, Object>> achievements = achievementService.getAchievementsByStudent(studentId);
             return ResponseEntity.ok(achievements);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -94,8 +130,17 @@ public class AchievementController {
             } else {
                 return ResponseEntity.notFound().build();
             }
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -105,8 +150,17 @@ public class AchievementController {
         try {
             List<Map<String, Object>> achievements = achievementService.getPopularAchievements();
             return ResponseEntity.ok(achievements);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -116,8 +170,17 @@ public class AchievementController {
         try {
             List<Map<String, Object>> achievements = achievementService.getRecentAchievements();
             return ResponseEntity.ok(achievements);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -133,8 +196,17 @@ public class AchievementController {
 
             List<Map<String, Object>> achievements = achievementService.getPendingAchievements();
             return ResponseEntity.ok(achievements);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -153,8 +225,17 @@ public class AchievementController {
 
             achievementService.approveAchievement(achievementId, admin.getId());
             return ResponseEntity.ok(Map.of("message", "Achievement approved successfully"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -175,8 +256,17 @@ public class AchievementController {
             String reason = data.get("reason");
             achievementService.rejectAchievement(achievementId, admin.getId(), reason);
             return ResponseEntity.ok(Map.of("message", "Achievement rejected"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -194,8 +284,17 @@ public class AchievementController {
 
             achievementService.hideAchievement(achievementId);
             return ResponseEntity.ok(Map.of("message", "Achievement hidden successfully"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -213,8 +312,17 @@ public class AchievementController {
 
             achievementService.unhideAchievement(achievementId);
             return ResponseEntity.ok(Map.of("message", "Achievement unhidden successfully"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -230,8 +338,17 @@ public class AchievementController {
         try {
             achievementService.likeAchievement(achievementId);
             return ResponseEntity.ok(Map.of("message", "Achievement liked"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -247,8 +364,17 @@ public class AchievementController {
         try {
             achievementService.unlikeAchievement(achievementId);
             return ResponseEntity.ok(Map.of("message", "Achievement unliked"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -264,8 +390,17 @@ public class AchievementController {
         try {
             achievementService.shareAchievement(achievementId);
             return ResponseEntity.ok(Map.of("message", "Achievement shared"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -293,8 +428,17 @@ public class AchievementController {
                 "message", "Comment added successfully",
                 "commentId", comment.getId()
             ));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -304,8 +448,17 @@ public class AchievementController {
         try {
             List<Map<String, Object>> comments = achievementService.getAchievementComments(achievementId);
             return ResponseEntity.ok(comments);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -322,8 +475,17 @@ public class AchievementController {
             boolean isAdmin = authUtils.isAdmin(authHeader);
             achievementService.deleteComment(commentId, currentUser.getId(), isAdmin);
             return ResponseEntity.ok(Map.of("message", "Comment deleted successfully"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -345,8 +507,17 @@ public class AchievementController {
                 "message", "Achievement updated successfully",
                 "achievement", updated
             ));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -362,8 +533,17 @@ public class AchievementController {
             }
             achievementService.deleteAchievement(achievementId, currentUser.getId());
             return ResponseEntity.ok(Map.of("message", "Achievement deleted successfully"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -383,8 +563,17 @@ public class AchievementController {
             String imageUrl = data.get("imageUrl");
             achievementService.updateAchievementImage(achievementId, imageUrl);
             return ResponseEntity.ok(Map.of("message", "Achievement image updated successfully"));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("not found")) {
+                return ResponseEntity.status(404).body(Map.of("error", msg));
+            }
+            if (msg != null && (msg.toLowerCase().contains("unauthorized") || msg.toLowerCase().contains("authentication required"))) {
+                return ResponseEntity.status(401).body(Map.of("error", msg));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 }
