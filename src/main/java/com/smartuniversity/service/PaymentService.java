@@ -63,76 +63,8 @@ public class PaymentService {
                 return result;
             }
 
-            // Get metadata from session
-            Map<String, String> metadata = session.getMetadata();
-            String financialAidIdStr = metadata.get("financialAidId");
-            String donorName = metadata.get("donorName");
-            boolean isAnonymous = "true".equals(metadata.get("isAnonymous"));
-            String message = metadata.get("message");
-
-            if (financialAidIdStr == null) {
-                result.put("status", "ERROR");
-                result.put("message", "Missing financial aid ID in session metadata");
-                return result;
-            }
-
-            Long financialAidId = Long.parseLong(financialAidIdStr);
-
-            // Check if donation already exists for this session (exact match)
-            FinancialAidDonation existingDonation = donationRepository.findByTransactionId(sessionId);
-            if (existingDonation != null) {
-                if (existingDonation.getStatus() == FinancialAidDonation.DonationStatus.COMPLETED) {
-                    System.out.println("Donation already completed for session: " + sessionId);
-                    result.put("status", "COMPLETED");
-                    result.put("message", "Donation already recorded");
-                    result.put("donationId", existingDonation.getId());
-                    result.put("amount", existingDonation.getAmount());
-                    return result;
-                }
-            }
-
-            // Get financial aid
-            Optional<FinancialAid> aidOpt = financialAidRepository.findById(financialAidId);
-            if (aidOpt.isEmpty()) {
-                result.put("status", "ERROR");
-                result.put("message", "Financial aid not found");
-                return result;
-            }
-
-            FinancialAid financialAid = aidOpt.get();
-
-            // Get amount from session (Stripe uses cents)
-            BigDecimal amount = BigDecimal.valueOf(session.getAmountTotal()).divide(BigDecimal.valueOf(100));
-
-            // Create or update donation record
-            FinancialAidDonation donation;
-            if (existingDonation != null) {
-                donation = existingDonation;
-            } else {
-                donation = new FinancialAidDonation(financialAid, null, amount);
-            }
-
-            donation.setAmount(amount);
-            donation.setAnonymous(isAnonymous);
-            donation.setMessage(message);
-            donation.setStatus(FinancialAidDonation.DonationStatus.COMPLETED);
-            donation.setTransactionId(sessionId);
-            donationRepository.save(donation);
-
-            // Update financial aid raised amount
-            BigDecimal newRaisedAmount = financialAid.getRaisedAmount().add(amount);
-            financialAid.setRaisedAmount(newRaisedAmount);
-            financialAid.setSupporterCount(financialAid.getSupporterCount() + 1);
-            financialAidRepository.save(financialAid);
-
-            System.out.println("Payment confirmed! Donation ID: " + donation.getId() + ", Amount: " + amount);
-
-            result.put("status", "COMPLETED");
-            result.put("message", "Payment confirmed successfully");
-            result.put("donationId", donation.getId());
-            result.put("amount", amount);
-            result.put("financialAidId", financialAidId);
-
+            Map<String, Object> processResult = processCompletedSession(session);
+            result.putAll(processResult);
             return result;
 
         } catch (Exception e) {
@@ -142,6 +74,87 @@ public class PaymentService {
             result.put("message", "Failed to confirm payment: " + e.getMessage());
             return result;
         }
+    }
+
+    /**
+     * Shared logic to persist a completed Stripe session to the database.
+     * Called from both confirmStripePayment (frontend-driven) and processStripeWebhook (Stripe-driven).
+     */
+    @Transactional
+    public Map<String, Object> processCompletedSession(Session session) {
+        Map<String, Object> result = new HashMap<>();
+        String sessionId = session.getId();
+
+        // Get metadata from session
+        Map<String, String> metadata = session.getMetadata();
+        String financialAidIdStr = metadata != null ? metadata.get("financialAidId") : null;
+        boolean isAnonymous = metadata != null && "true".equals(metadata.get("isAnonymous"));
+        String message = metadata != null ? metadata.get("message") : null;
+
+        if (financialAidIdStr == null) {
+            result.put("status", "ERROR");
+            result.put("message", "Missing financial aid ID in session metadata");
+            return result;
+        }
+
+        Long financialAidId = Long.parseLong(financialAidIdStr);
+
+        // Check if donation already exists for this session (idempotency)
+        FinancialAidDonation existingDonation = donationRepository.findByTransactionId(sessionId);
+        if (existingDonation != null) {
+            if (existingDonation.getStatus() == FinancialAidDonation.DonationStatus.COMPLETED) {
+                System.out.println("Donation already completed for session: " + sessionId);
+                result.put("status", "COMPLETED");
+                result.put("message", "Donation already recorded");
+                result.put("donationId", existingDonation.getId());
+                result.put("amount", existingDonation.getAmount());
+                return result;
+            }
+        }
+
+        // Get financial aid
+        Optional<FinancialAid> aidOpt = financialAidRepository.findById(financialAidId);
+        if (aidOpt.isEmpty()) {
+            result.put("status", "ERROR");
+            result.put("message", "Financial aid not found");
+            return result;
+        }
+
+        FinancialAid financialAid = aidOpt.get();
+
+        // Get amount from session (Stripe uses cents)
+        BigDecimal amount = BigDecimal.valueOf(session.getAmountTotal()).divide(BigDecimal.valueOf(100));
+
+        // Create or update donation record
+        FinancialAidDonation donation;
+        if (existingDonation != null) {
+            donation = existingDonation;
+        } else {
+            donation = new FinancialAidDonation(financialAid, null, amount);
+        }
+
+        donation.setAmount(amount);
+        donation.setAnonymous(isAnonymous);
+        donation.setMessage(message);
+        donation.setStatus(FinancialAidDonation.DonationStatus.COMPLETED);
+        donation.setTransactionId(sessionId);
+        donationRepository.save(donation);
+
+        // Update financial aid raised amount
+        BigDecimal newRaisedAmount = financialAid.getRaisedAmount().add(amount);
+        financialAid.setRaisedAmount(newRaisedAmount);
+        financialAid.setSupporterCount(financialAid.getSupporterCount() + 1);
+        financialAidRepository.save(financialAid);
+
+        System.out.println("Payment confirmed! Donation ID: " + donation.getId() + ", Amount: " + amount);
+
+        result.put("status", "COMPLETED");
+        result.put("message", "Payment confirmed successfully");
+        result.put("donationId", donation.getId());
+        result.put("amount", amount);
+        result.put("financialAidId", financialAidId);
+
+        return result;
     }
 
     /**
@@ -200,8 +213,15 @@ public class PaymentService {
 
             // Process relevant event types
             if ("checkout.session.completed".equals(event.getType())) {
-                // Payment was successful — confirmation handled by confirmStripePayment
-                System.out.println("Checkout session completed event received");
+                Session session = (Session) event.getDataObjectDeserializer().getObject().orElse(null);
+                if (session != null) {
+                    processCompletedSession(session);
+                }
+            } else if ("checkout.session.expired".equals(event.getType())) {
+                Session session = (Session) event.getDataObjectDeserializer().getObject().orElse(null);
+                if (session != null) {
+                    markDonationFailed(session.getId());
+                }
             }
 
             return true;
@@ -211,6 +231,19 @@ public class PaymentService {
         } catch (Exception e) {
             System.err.println("Webhook processing error: " + e.getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Mark a donation as failed (e.g., expired session)
+     */
+    @Transactional
+    public void markDonationFailed(String sessionId) {
+        FinancialAidDonation donation = donationRepository.findByTransactionId(sessionId);
+        if (donation != null) {
+            donation.setStatus(FinancialAidDonation.DonationStatus.FAILED);
+            donationRepository.save(donation);
+            System.out.println("Marked donation as failed for session: " + sessionId);
         }
     }
 }

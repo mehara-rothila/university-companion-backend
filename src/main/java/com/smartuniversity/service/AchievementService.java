@@ -13,6 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import com.smartuniversity.exception.NotFoundException;
+import com.smartuniversity.exception.UnauthorizedException;
+import com.smartuniversity.exception.ForbiddenException;
 
 @Service
 public class AchievementService {
@@ -79,7 +82,10 @@ public class AchievementService {
     public Optional<Map<String, Object>> getAchievementById(Long id) {
         Optional<StudentAchievement> achievement = achievementRepository.findById(id);
         if (achievement.isPresent()) {
-            Map<String, Object> response = buildAchievementResponse(achievement.get());
+            StudentAchievement a = achievement.get();
+            Map<Long, User> userMap = new HashMap<>();
+            userRepository.findById(a.getStudentId()).ifPresent(u -> userMap.put(u.getId(), u));
+            Map<String, Object> response = buildAchievementResponse(a, userMap);
             // Include comments
             List<Map<String, Object>> comments = getAchievementComments(id);
             response.put("commentsList", comments);
@@ -92,7 +98,7 @@ public class AchievementService {
     @Transactional
     public void approveAchievement(Long achievementId, Long adminId) {
         StudentAchievement achievement = achievementRepository.findById(achievementId)
-            .orElseThrow(() -> new RuntimeException("Achievement not found"));
+            .orElseThrow(() -> new NotFoundException("Achievement not found"));
 
         if (achievement.getStatus() != ApprovalStatus.PENDING) {
             throw new RuntimeException("Only pending achievements can be approved");
@@ -108,7 +114,7 @@ public class AchievementService {
     @Transactional
     public void rejectAchievement(Long achievementId, Long adminId, String reason) {
         StudentAchievement achievement = achievementRepository.findById(achievementId)
-            .orElseThrow(() -> new RuntimeException("Achievement not found"));
+            .orElseThrow(() -> new NotFoundException("Achievement not found"));
 
         if (achievement.getStatus() != ApprovalStatus.PENDING) {
             throw new RuntimeException("Only pending achievements can be rejected");
@@ -129,7 +135,7 @@ public class AchievementService {
     @Transactional
     public void hideAchievement(Long achievementId) {
         StudentAchievement achievement = achievementRepository.findById(achievementId)
-            .orElseThrow(() -> new RuntimeException("Achievement not found"));
+            .orElseThrow(() -> new NotFoundException("Achievement not found"));
         achievement.setHidden(true);
         achievementRepository.save(achievement);
     }
@@ -138,7 +144,7 @@ public class AchievementService {
     @Transactional
     public void unhideAchievement(Long achievementId) {
         StudentAchievement achievement = achievementRepository.findById(achievementId)
-            .orElseThrow(() -> new RuntimeException("Achievement not found"));
+            .orElseThrow(() -> new NotFoundException("Achievement not found"));
         achievement.setHidden(false);
         achievementRepository.save(achievement);
     }
@@ -147,7 +153,7 @@ public class AchievementService {
     @Transactional
     public void updateAchievementImage(Long achievementId, String imageUrl) {
         StudentAchievement achievement = achievementRepository.findById(achievementId)
-            .orElseThrow(() -> new RuntimeException("Achievement not found"));
+            .orElseThrow(() -> new NotFoundException("Achievement not found"));
         achievement.setImageUrl(imageUrl);
         achievementRepository.save(achievement);
     }
@@ -156,7 +162,7 @@ public class AchievementService {
     @Transactional
     public void likeAchievement(Long achievementId) {
         StudentAchievement achievement = achievementRepository.findById(achievementId)
-            .orElseThrow(() -> new RuntimeException("Achievement not found"));
+            .orElseThrow(() -> new NotFoundException("Achievement not found"));
         achievement.setLikes(achievement.getLikes() + 1);
         achievementRepository.save(achievement);
     }
@@ -165,7 +171,7 @@ public class AchievementService {
     @Transactional
     public void unlikeAchievement(Long achievementId) {
         StudentAchievement achievement = achievementRepository.findById(achievementId)
-            .orElseThrow(() -> new RuntimeException("Achievement not found"));
+            .orElseThrow(() -> new NotFoundException("Achievement not found"));
         if (achievement.getLikes() > 0) {
             achievement.setLikes(achievement.getLikes() - 1);
         }
@@ -176,7 +182,7 @@ public class AchievementService {
     @Transactional
     public void shareAchievement(Long achievementId) {
         StudentAchievement achievement = achievementRepository.findById(achievementId)
-            .orElseThrow(() -> new RuntimeException("Achievement not found"));
+            .orElseThrow(() -> new NotFoundException("Achievement not found"));
         achievement.setShares(achievement.getShares() + 1);
         achievementRepository.save(achievement);
     }
@@ -185,7 +191,7 @@ public class AchievementService {
     @Transactional
     public AchievementComment addComment(Long achievementId, Long userId, String commentText) {
         StudentAchievement achievement = achievementRepository.findById(achievementId)
-            .orElseThrow(() -> new RuntimeException("Achievement not found"));
+            .orElseThrow(() -> new NotFoundException("Achievement not found"));
 
         AchievementComment comment = new AchievementComment(achievementId, userId, commentText);
         comment = commentRepository.save(comment);
@@ -202,6 +208,16 @@ public class AchievementService {
         List<AchievementComment> comments = commentRepository
             .findByAchievementIdAndIsDeletedOrderByCreatedAtDesc(achievementId, false);
 
+        // Batch fetch users to avoid N+1 queries
+        Set<Long> userIds = new HashSet<>();
+        for (AchievementComment comment : comments) {
+            userIds.add(comment.getUserId());
+        }
+        Map<Long, User> userMap = new HashMap<>();
+        for (User u : userRepository.findAllById(userIds)) {
+            userMap.put(u.getId(), u);
+        }
+
         List<Map<String, Object>> response = new ArrayList<>();
         for (AchievementComment comment : comments) {
             Map<String, Object> commentData = new HashMap<>();
@@ -211,11 +227,11 @@ public class AchievementService {
             commentData.put("updatedAt", comment.getUpdatedAt());
 
             // Add user info
-            Optional<User> user = userRepository.findById(comment.getUserId());
-            if (user.isPresent()) {
-                commentData.put("userName", user.get().getFirstName() + " " + user.get().getLastName());
-                commentData.put("userImageUrl", user.get().getImageUrl());
-                commentData.put("userRole", user.get().getRole().name());
+            User user = userMap.get(comment.getUserId());
+            if (user != null) {
+                commentData.put("userName", user.getFirstName() + " " + user.getLastName());
+                commentData.put("userImageUrl", user.getImageUrl());
+                commentData.put("userRole", user.getRole().name());
             }
 
             response.add(commentData);
@@ -228,10 +244,10 @@ public class AchievementService {
     @Transactional
     public void deleteComment(Long commentId, Long userId, boolean isAdmin) {
         AchievementComment comment = commentRepository.findById(commentId)
-            .orElseThrow(() -> new RuntimeException("Comment not found"));
+            .orElseThrow(() -> new NotFoundException("Comment not found"));
 
         if (!comment.getUserId().equals(userId) && !isAdmin) {
-            throw new RuntimeException("Unauthorized to delete this comment");
+            throw new ForbiddenException("Unauthorized to delete this comment");
         }
 
         comment.setIsDeleted(true);
@@ -250,7 +266,7 @@ public class AchievementService {
     @Transactional
     public StudentAchievement updateAchievement(Long achievementId, StudentAchievement updatedData, Long userId) {
         StudentAchievement achievement = achievementRepository.findById(achievementId)
-            .orElseThrow(() -> new RuntimeException("Achievement not found"));
+            .orElseThrow(() -> new NotFoundException("Achievement not found"));
 
         // Only the owner can update their achievement
         if (!achievement.getStudentId().equals(userId)) {
@@ -312,21 +328,24 @@ public class AchievementService {
     @Transactional
     public void deleteAchievement(Long achievementId, Long userId) {
         StudentAchievement achievement = achievementRepository.findById(achievementId)
-            .orElseThrow(() -> new RuntimeException("Achievement not found"));
+            .orElseThrow(() -> new NotFoundException("Achievement not found"));
 
         if (!achievement.getStudentId().equals(userId)) {
-            throw new RuntimeException("Unauthorized to delete this achievement");
+            throw new ForbiddenException("Unauthorized to delete this achievement");
         }
 
         if (achievement.getStatus() == ApprovalStatus.APPROVED) {
-            throw new RuntimeException("Approved achievements cannot be deleted");
+            throw new ForbiddenException("Approved achievements cannot be deleted");
         }
+
+        // Cascade delete related comments
+        commentRepository.deleteByAchievementId(achievementId);
 
         achievementRepository.delete(achievement);
     }
 
     // Helper method to build achievement response with user info
-    private Map<String, Object> buildAchievementResponse(StudentAchievement achievement) {
+    private Map<String, Object> buildAchievementResponse(StudentAchievement achievement, Map<Long, User> userMap) {
         Map<String, Object> response = new HashMap<>();
         response.put("id", achievement.getId());
         response.put("title", achievement.getTitle());
@@ -349,23 +368,32 @@ public class AchievementService {
         response.put("shares", achievement.getShares());
 
         // Add student info
-        Optional<User> student = userRepository.findById(achievement.getStudentId());
-        if (student.isPresent()) {
-            User s = student.get();
-            response.put("studentName", s.getFirstName() + " " + s.getLastName());
-            response.put("studentEmail", s.getEmail());
-            response.put("studentImageUrl", s.getImageUrl());
-            response.put("studentMajor", s.getMajor());
-            response.put("studentYear", s.getYear());
+        User student = userMap.get(achievement.getStudentId());
+        if (student != null) {
+            response.put("studentName", student.getFirstName() + " " + student.getLastName());
+            response.put("studentEmail", student.getEmail());
+            response.put("studentImageUrl", student.getImageUrl());
+            response.put("studentMajor", student.getMajor());
+            response.put("studentYear", student.getYear());
         }
 
         return response;
     }
 
     private List<Map<String, Object>> buildAchievementResponseList(List<StudentAchievement> achievements) {
+        // Batch fetch students to avoid N+1 queries
+        Set<Long> studentIds = new HashSet<>();
+        for (StudentAchievement achievement : achievements) {
+            studentIds.add(achievement.getStudentId());
+        }
+        Map<Long, User> userMap = new HashMap<>();
+        for (User u : userRepository.findAllById(studentIds)) {
+            userMap.put(u.getId(), u);
+        }
+
         List<Map<String, Object>> response = new ArrayList<>();
         for (StudentAchievement achievement : achievements) {
-            response.add(buildAchievementResponse(achievement));
+            response.add(buildAchievementResponse(achievement, userMap));
         }
         return response;
     }

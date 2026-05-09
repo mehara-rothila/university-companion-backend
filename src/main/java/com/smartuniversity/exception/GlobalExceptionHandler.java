@@ -9,28 +9,28 @@ import java.util.Map;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Map<String, String>> handleRuntimeException(RuntimeException e) {
-        String msg = e.getMessage();
-        if (msg == null) {
-            msg = "An error occurred";
-        }
-        String lower = msg.toLowerCase();
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleNotFound(NotFoundException e) {
+        return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
+    }
 
-        if (lower.contains("not found")) {
-            return ResponseEntity.status(404).body(Map.of("error", msg));
-        }
-        if (lower.contains("unauthorized") || lower.contains("authentication required")) {
-            return ResponseEntity.status(401).body(Map.of("error", msg));
-        }
-        if (lower.contains("forbidden")) {
-            return ResponseEntity.status(403).body(Map.of("error", msg));
-        }
-        return ResponseEntity.badRequest().body(Map.of("error", msg));
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<Map<String, String>> handleUnauthorized(UnauthorizedException e) {
+        return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Map<String, String>> handleForbidden(ForbiddenException e) {
+        return ResponseEntity.status(403).body(Map.of("error", e.getMessage()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Map<String, String>> handleRuntimeException(RuntimeException e) {
         return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
     }
 

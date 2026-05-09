@@ -18,6 +18,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import com.smartuniversity.exception.NotFoundException;
+import com.smartuniversity.exception.UnauthorizedException;
+import com.smartuniversity.exception.ForbiddenException;
 
 @RestController
 @RequestMapping("/api/events")
@@ -269,7 +272,7 @@ public class EventController {
     public ResponseEntity<?> getEventById(@PathVariable Long id) {
         try {
             Event event = eventRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Event not found"));
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
             Map<String, Object> response = buildEventResponse(event);
 
@@ -338,7 +341,7 @@ public class EventController {
                 return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
             }
             Event event = eventRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Event not found"));
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
             // Check if user is the creator
             if (!event.getCreatorId().equals(currentUser.getId())) {
@@ -429,7 +432,7 @@ public class EventController {
             }
 
             Event event = eventRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Event not found"));
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
             String imageUrl = body.get("imageUrl");
             if (imageUrl == null || imageUrl.trim().isEmpty()) {
@@ -465,7 +468,7 @@ public class EventController {
                 return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
             }
             Event event = eventRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Event not found"));
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
             // Check if user is the creator
             if (!event.getCreatorId().equals(currentUser.getId())) {
@@ -476,6 +479,11 @@ public class EventController {
             if (event.getStatus() != ApprovalStatus.PENDING) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Cannot delete event after it has been reviewed"));
             }
+
+            // Cascade delete related records
+            attendanceRepository.deleteByEventId(id);
+            commentRepository.deleteByEventId(id);
+            registrationRepository.deleteByEventId(id);
 
             eventRepository.delete(event);
 
@@ -508,7 +516,7 @@ public class EventController {
 
             // Check if event exists and is approved
             Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new RuntimeException("Event not found"));
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
             if (event.getStatus() != ApprovalStatus.APPROVED) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Event is not approved"));
@@ -587,7 +595,7 @@ public class EventController {
                 return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
             }
             EventRegistration registration = registrationRepository.findByEventIdAndUserId(eventId, currentUser.getId())
-                .orElseThrow(() -> new RuntimeException("Registration not found"));
+                .orElseThrow(() -> new NotFoundException("Registration not found"));
 
             if (registration.getStatus() == RegistrationStatus.CANCELLED) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Registration already cancelled"));
@@ -655,7 +663,7 @@ public class EventController {
     public ResponseEntity<?> getEventRegistrations(@PathVariable Long eventId, @RequestParam Long creatorId) {
         try {
             Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new RuntimeException("Event not found"));
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
             // Verify creator
             if (!event.getCreatorId().equals(creatorId)) {
@@ -664,10 +672,22 @@ public class EventController {
 
             List<EventRegistration> registrations = registrationRepository.findByEventIdOrderByRegisteredAtAsc(eventId);
 
+            // Batch fetch users to avoid N+1 queries
+            Set<Long> userIds = new HashSet<>();
+            for (EventRegistration registration : registrations) {
+                if (registration.getStatus() != RegistrationStatus.CANCELLED) {
+                    userIds.add(registration.getUserId());
+                }
+            }
+            Map<Long, User> userMap = new HashMap<>();
+            for (User u : userRepository.findAllById(userIds)) {
+                userMap.put(u.getId(), u);
+            }
+
             List<Map<String, Object>> response = new ArrayList<>();
             for (EventRegistration registration : registrations) {
                 if (registration.getStatus() != RegistrationStatus.CANCELLED) {
-                    User user = userRepository.findById(registration.getUserId()).orElse(null);
+                    User user = userMap.get(registration.getUserId());
                     Map<String, Object> registrationData = new HashMap<>();
                     registrationData.put("id", registration.getId());
                     registrationData.put("userId", registration.getUserId());
@@ -771,9 +791,19 @@ public class EventController {
         try {
             List<EventComment> comments = commentRepository.findByEventIdAndIsDeletedOrderByCreatedAtDesc(eventId, false);
 
+            // Batch fetch users to avoid N+1 queries
+            Set<Long> userIds = new HashSet<>();
+            for (EventComment comment : comments) {
+                userIds.add(comment.getUserId());
+            }
+            Map<Long, User> userMap = new HashMap<>();
+            for (User u : userRepository.findAllById(userIds)) {
+                userMap.put(u.getId(), u);
+            }
+
             List<Map<String, Object>> response = new ArrayList<>();
             for (EventComment comment : comments) {
-                User user = userRepository.findById(comment.getUserId()).orElse(null);
+                User user = userMap.get(comment.getUserId());
                 Map<String, Object> commentData = new HashMap<>();
                 commentData.put("id", comment.getId());
                 commentData.put("comment", comment.getComment());
@@ -816,7 +846,7 @@ public class EventController {
 
         // Verify event exists
         eventRepository.findById(eventId)
-            .orElseThrow(() -> new RuntimeException("Event not found"));
+            .orElseThrow(() -> new NotFoundException("Event not found"));
 
         String commentText = (String) commentData.get("comment");
         if (commentText == null || commentText.trim().isEmpty()) {
@@ -839,7 +869,7 @@ public class EventController {
                 return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
             }
             EventComment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                .orElseThrow(() -> new NotFoundException("Comment not found"));
 
             // Check if user owns the comment or is admin
             boolean isAdmin = authUtils.isAdmin(authHeader);
@@ -878,12 +908,22 @@ public class EventController {
 
             List<Event> events = eventRepository.findByStatusOrderByCreatedAtAsc(ApprovalStatus.PENDING);
 
+            // Batch fetch creators to avoid N+1 queries
+            Set<Long> creatorIds = new HashSet<>();
+            for (Event event : events) {
+                creatorIds.add(event.getCreatorId());
+            }
+            Map<Long, User> creatorMap = new HashMap<>();
+            for (User u : userRepository.findAllById(creatorIds)) {
+                creatorMap.put(u.getId(), u);
+            }
+
             List<Map<String, Object>> response = new ArrayList<>();
             for (Event event : events) {
                 Map<String, Object> eventData = buildEventResponse(event);
 
                 // Add creator info
-                User creator = userRepository.findById(event.getCreatorId()).orElse(null);
+                User creator = creatorMap.get(event.getCreatorId());
                 if (creator != null) {
                     eventData.put("creatorName", creator.getFirstName() + " " + creator.getLastName());
                     eventData.put("creatorEmail", creator.getEmail());
@@ -920,7 +960,7 @@ public class EventController {
             }
 
             Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new RuntimeException("Event not found"));
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
             // Validate status transition
             if (event.getStatus() != ApprovalStatus.PENDING) {
@@ -961,7 +1001,7 @@ public class EventController {
             }
 
             Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new RuntimeException("Event not found"));
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
             // Validate status transition
             if (event.getStatus() != ApprovalStatus.PENDING) {
@@ -1007,7 +1047,7 @@ public class EventController {
             }
 
             Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new RuntimeException("Event not found"));
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
             event.setHidden(true);
             eventRepository.save(event);
@@ -1039,7 +1079,7 @@ public class EventController {
             }
 
             Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new RuntimeException("Event not found"));
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
             event.setHidden(false);
             eventRepository.save(event);
@@ -1072,11 +1112,11 @@ public class EventController {
         try {
             // Validate event exists
             Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new RuntimeException("Event not found"));
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
             // Validate user exists
             User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
             // Check if already attended
             if (attendanceRepository.existsByEventIdAndUserId(eventId, request.getUserId())) {
@@ -1113,15 +1153,27 @@ public class EventController {
         try {
             // Validate event exists
             Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new RuntimeException("Event not found"));
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
             List<com.smartuniversity.model.EventAttendance> attendanceList = attendanceRepository.findByEventId(eventId);
+
+            // Batch fetch checked-in-by users to avoid N+1 queries
+            Set<Long> checkedInByIds = new HashSet<>();
+            for (com.smartuniversity.model.EventAttendance attendance : attendanceList) {
+                if (attendance.getCheckedInBy() != null) {
+                    checkedInByIds.add(attendance.getCheckedInBy());
+                }
+            }
+            Map<Long, User> checkedInByMap = new HashMap<>();
+            for (User u : userRepository.findAllById(checkedInByIds)) {
+                checkedInByMap.put(u.getId(), u);
+            }
 
             List<com.smartuniversity.dto.AttendanceResponse> responses = new ArrayList<>();
             for (com.smartuniversity.model.EventAttendance attendance : attendanceList) {
                 User user = attendance.getUser();
                 User checkedInByUser = attendance.getCheckedInBy() != null ?
-                    userRepository.findById(attendance.getCheckedInBy()).orElse(null) : null;
+                    checkedInByMap.get(attendance.getCheckedInBy()) : null;
 
                 com.smartuniversity.dto.AttendanceResponse response = new com.smartuniversity.dto.AttendanceResponse(
                     attendance.getId(),
@@ -1155,7 +1207,7 @@ public class EventController {
         try {
             // Validate event exists
             Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new RuntimeException("Event not found"));
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
             // Count registrations
             long totalRegistered = registrationRepository.countByEventIdAndStatus(eventId, RegistrationStatus.REGISTERED);

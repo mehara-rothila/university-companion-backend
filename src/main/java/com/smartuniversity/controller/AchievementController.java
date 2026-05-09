@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import com.smartuniversity.exception.NotFoundException;
+import com.smartuniversity.exception.UnauthorizedException;
+import com.smartuniversity.exception.ForbiddenException;
 
 @RestController
 @RequestMapping("/api/achievements")

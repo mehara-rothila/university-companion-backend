@@ -23,6 +23,9 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import com.smartuniversity.exception.NotFoundException;
+import com.smartuniversity.exception.UnauthorizedException;
+import com.smartuniversity.exception.ForbiddenException;
 
 @RestController
 @RequestMapping("/api/competitions")
@@ -151,7 +154,7 @@ public class CompetitionController {
             return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
         }
         Competition competition = competitionRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Competition not found"));
+            .orElseThrow(() -> new NotFoundException("Competition not found"));
 
         // Check if user is the organizer
         if (!competition.getOrganizerId().equals(currentUser.getId())) {
@@ -238,7 +241,7 @@ public class CompetitionController {
     @GetMapping("/{id}")
     public ResponseEntity<?> getCompetitionById(@PathVariable Long id) {
         Competition competition = competitionRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Competition not found"));
+            .orElseThrow(() -> new NotFoundException("Competition not found"));
 
         Map<String, Object> response = buildCompetitionResponse(competition);
 
@@ -261,7 +264,7 @@ public class CompetitionController {
         }
 
         Competition competition = competitionRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Competition not found"));
+            .orElseThrow(() -> new NotFoundException("Competition not found"));
 
         String imageUrl = body.get("imageUrl");
         if (imageUrl == null || imageUrl.trim().isEmpty()) {
@@ -308,7 +311,7 @@ public class CompetitionController {
 
         // Check if competition exists and is approved
         Competition competition = competitionRepository.findById(competitionId)
-            .orElseThrow(() -> new RuntimeException("Competition not found"));
+            .orElseThrow(() -> new NotFoundException("Competition not found"));
 
         if (competition.getStatus() != ApprovalStatus.APPROVED) {
             return ResponseEntity.badRequest().body(Map.of("error", "Competition is not approved"));
@@ -359,7 +362,7 @@ public class CompetitionController {
             return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
         }
         CompetitionEnrollment enrollment = enrollmentRepository.findByCompetitionIdAndUserId(competitionId, currentUser.getId())
-            .orElseThrow(() -> new RuntimeException("Enrollment not found"));
+            .orElseThrow(() -> new NotFoundException("Enrollment not found"));
 
         if (enrollment.getStatus() == EnrollmentStatus.WITHDRAWN) {
             return ResponseEntity.badRequest().body(Map.of("error", "Already withdrawn"));
@@ -379,7 +382,7 @@ public class CompetitionController {
             @RequestParam(required = false) Long organizerId,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         Competition competition = competitionRepository.findById(competitionId)
-            .orElseThrow(() -> new RuntimeException("Competition not found"));
+            .orElseThrow(() -> new NotFoundException("Competition not found"));
 
         // Allow organizer or admin
         boolean isAdmin = authUtils.isAdmin(authHeader);
@@ -393,9 +396,19 @@ public class CompetitionController {
             EnrollmentStatus.ENROLLED
         );
 
+        // Batch fetch users to avoid N+1 queries
+        Set<Long> userIds = new HashSet<>();
+        for (CompetitionEnrollment enrollment : enrollments) {
+            userIds.add(enrollment.getUserId());
+        }
+        Map<Long, User> userMap = new HashMap<>();
+        for (User u : userRepository.findAllById(userIds)) {
+            userMap.put(u.getId(), u);
+        }
+
         List<Map<String, Object>> response = new ArrayList<>();
         for (CompetitionEnrollment enrollment : enrollments) {
-            User user = userRepository.findById(enrollment.getUserId()).orElse(null);
+            User user = userMap.get(enrollment.getUserId());
             Map<String, Object> enrollmentData = new HashMap<>();
             enrollmentData.put("id", enrollment.getId());
             enrollmentData.put("userId", enrollment.getUserId());
@@ -420,7 +433,7 @@ public class CompetitionController {
             @RequestParam(required = false) Long organizerId,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         Competition competition = competitionRepository.findById(competitionId)
-            .orElseThrow(() -> new RuntimeException("Competition not found"));
+            .orElseThrow(() -> new NotFoundException("Competition not found"));
 
         // Allow organizer or admin
         boolean isAdmin = authUtils.isAdmin(authHeader);
@@ -437,8 +450,18 @@ public class CompetitionController {
         StringBuilder csv = new StringBuilder();
         csv.append("User ID,Name,Email,Enrolled At,Form Responses\n");
 
+        // Batch fetch users to avoid N+1 queries
+        Set<Long> userIds = new HashSet<>();
         for (CompetitionEnrollment enrollment : enrollments) {
-            User user = userRepository.findById(enrollment.getUserId()).orElse(null);
+            userIds.add(enrollment.getUserId());
+        }
+        Map<Long, User> userMap = new HashMap<>();
+        for (User u : userRepository.findAllById(userIds)) {
+            userMap.put(u.getId(), u);
+        }
+
+        for (CompetitionEnrollment enrollment : enrollments) {
+            User user = userMap.get(enrollment.getUserId());
             csv.append(enrollment.getUserId()).append(",");
 
             if (user != null) {
@@ -481,12 +504,22 @@ public class CompetitionController {
 
         List<Competition> competitions = competitionRepository.findByStatusOrderByCreatedAtAsc(ApprovalStatus.PENDING);
 
+        // Batch fetch organizers to avoid N+1 queries
+        Set<Long> organizerIds = new HashSet<>();
+        for (Competition comp : competitions) {
+            organizerIds.add(comp.getOrganizerId());
+        }
+        Map<Long, User> organizerMap = new HashMap<>();
+        for (User u : userRepository.findAllById(organizerIds)) {
+            organizerMap.put(u.getId(), u);
+        }
+
         List<Map<String, Object>> response = new ArrayList<>();
         for (Competition comp : competitions) {
             Map<String, Object> compData = buildCompetitionResponse(comp);
 
             // Add organizer info
-            User organizer = userRepository.findById(comp.getOrganizerId()).orElse(null);
+            User organizer = organizerMap.get(comp.getOrganizerId());
             if (organizer != null) {
                 compData.put("organizerName", organizer.getFirstName() + " " + organizer.getLastName());
                 compData.put("organizerEmail", organizer.getEmail());
@@ -510,7 +543,7 @@ public class CompetitionController {
         }
 
         Competition competition = competitionRepository.findById(competitionId)
-            .orElseThrow(() -> new RuntimeException("Competition not found"));
+            .orElseThrow(() -> new NotFoundException("Competition not found"));
 
         // Validate status transition
         if (competition.getStatus() != ApprovalStatus.PENDING) {
@@ -538,7 +571,7 @@ public class CompetitionController {
         }
 
         Competition competition = competitionRepository.findById(competitionId)
-            .orElseThrow(() -> new RuntimeException("Competition not found"));
+            .orElseThrow(() -> new NotFoundException("Competition not found"));
 
         // Validate status transition
         if (competition.getStatus() != ApprovalStatus.PENDING) {
@@ -571,7 +604,7 @@ public class CompetitionController {
         }
 
         Competition competition = competitionRepository.findById(competitionId)
-            .orElseThrow(() -> new RuntimeException("Competition not found"));
+            .orElseThrow(() -> new NotFoundException("Competition not found"));
 
         competition.setHidden(true);
         competitionRepository.save(competition);
@@ -590,7 +623,7 @@ public class CompetitionController {
         }
 
         Competition competition = competitionRepository.findById(competitionId)
-            .orElseThrow(() -> new RuntimeException("Competition not found"));
+            .orElseThrow(() -> new NotFoundException("Competition not found"));
 
         competition.setHidden(false);
         competitionRepository.save(competition);
@@ -609,12 +642,22 @@ public class CompetitionController {
 
         List<Competition> competitions = competitionRepository.findAllByOrderByCreatedAtDesc();
 
+        // Batch fetch organizers to avoid N+1 queries
+        Set<Long> organizerIds = new HashSet<>();
+        for (Competition comp : competitions) {
+            organizerIds.add(comp.getOrganizerId());
+        }
+        Map<Long, User> organizerMap = new HashMap<>();
+        for (User u : userRepository.findAllById(organizerIds)) {
+            organizerMap.put(u.getId(), u);
+        }
+
         List<Map<String, Object>> response = new ArrayList<>();
         for (Competition comp : competitions) {
             Map<String, Object> compData = buildCompetitionResponse(comp);
 
             // Add organizer info
-            User organizer = userRepository.findById(comp.getOrganizerId()).orElse(null);
+            User organizer = organizerMap.get(comp.getOrganizerId());
             if (organizer != null) {
                 compData.put("organizerName", organizer.getFirstName() + " " + organizer.getLastName());
                 compData.put("organizerEmail", organizer.getEmail());
@@ -644,7 +687,7 @@ public class CompetitionController {
         }
 
         Competition competition = competitionRepository.findById(competitionId)
-            .orElseThrow(() -> new RuntimeException("Competition not found"));
+            .orElseThrow(() -> new NotFoundException("Competition not found"));
 
         // Delete related enrollments first
         enrollmentRepository.deleteByCompetitionId(competitionId);

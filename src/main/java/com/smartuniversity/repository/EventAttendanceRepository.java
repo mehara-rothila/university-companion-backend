@@ -33,4 +33,7 @@ public interface EventAttendanceRepository extends JpaRepository<EventAttendance
 
     // Delete attendance by event and user
     void deleteByEventIdAndUserId(Long eventId, Long userId);
+
+    // Delete all attendance for an event
+    void deleteByEventId(Long eventId);
 }

@@ -31,4 +31,7 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
 
     // Find waitlisted users
     List<EventRegistration> findByEventIdAndStatusOrderByMovedToWaitlistAtAsc(Long eventId, RegistrationStatus status);
+
+    // Delete all registrations for an event
+    void deleteByEventId(Long eventId);
 }

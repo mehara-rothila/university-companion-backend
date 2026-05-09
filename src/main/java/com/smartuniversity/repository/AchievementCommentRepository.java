@@ -17,4 +17,7 @@ public interface AchievementCommentRepository extends JpaRepository<AchievementC
 
     // Count comments for an achievement (not deleted)
     Long countByAchievementIdAndIsDeleted(Long achievementId, Boolean isDeleted);
+
+    // Delete all comments for an achievement
+    void deleteByAchievementId(Long achievementId);
 }

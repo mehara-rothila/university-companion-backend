@@ -17,4 +17,7 @@ public interface EventCommentRepository extends JpaRepository<EventComment, Long
 
     // Count comments for an event (excluding deleted)
     long countByEventIdAndIsDeleted(Long eventId, Boolean isDeleted);
+
+    // Delete all comments for an event
+    void deleteByEventId(Long eventId);
 }
