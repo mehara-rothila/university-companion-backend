@@ -16,9 +16,10 @@ public class UserPrincipal implements UserDetails {
     private String username;
     private String password;
     private String role;
+    private boolean enabled;
 
-    public UserPrincipal(Long id, String firstName, String lastName, String email, 
-                        String username, String password, String role) {
+    public UserPrincipal(Long id, String firstName, String lastName, String email,
+                        String username, String password, String role, boolean enabled) {
         this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -26,6 +27,7 @@ public class UserPrincipal implements UserDetails {
         this.username = username;
         this.password = password;
         this.role = role;
+        this.enabled = enabled;
     }
 
     public static UserPrincipal create(User user) {
@@ -36,7 +38,8 @@ public class UserPrincipal implements UserDetails {
                 user.getEmail(),
                 user.getUsername(),
                 user.getPassword(),
-                user.getRole().name()
+                user.getRole().name(),
+                user.isEnabled()
         );
     }
 
@@ -92,6 +95,6 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return enabled;
     }
 }

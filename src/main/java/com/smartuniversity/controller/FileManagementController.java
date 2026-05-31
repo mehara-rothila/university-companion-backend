@@ -8,6 +8,7 @@ import com.smartuniversity.repository.BookRepository;
 import com.smartuniversity.repository.ChatbotUploadRepository;
 import com.smartuniversity.repository.LostFoundItemRepository;
 import com.smartuniversity.service.S3Service;
+import com.smartuniversity.util.AuthUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -34,8 +35,16 @@ public class FileManagementController {
     @Autowired
     private S3Service s3Service;
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<?> getUserFiles(@PathVariable Long userId) {
+    @Autowired
+    private AuthUtils authUtils;
+
+    @GetMapping("/user")
+    public ResponseEntity<?> getUserFiles() {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
+
         List<UserFileResponse> userFiles = new ArrayList<>();
 
         // Get Lost & Found item images
@@ -115,8 +124,13 @@ public class FileManagementController {
         return ResponseEntity.ok(userFiles);
     }
 
-    @GetMapping("/user/{userId}/stats")
-    public ResponseEntity<?> getUserFileStats(@PathVariable Long userId) {
+    @GetMapping("/user/stats")
+    public ResponseEntity<?> getUserFileStats() {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
+
         Map<String, Object> stats = new HashMap<>();
 
         // Count files
@@ -167,12 +181,17 @@ public class FileManagementController {
     }
 
     @DeleteMapping("/lost-found/{itemId}/image")
-    public ResponseEntity<?> deleteLostFoundImage(@PathVariable Long itemId, @RequestParam Long userId) {
+    public ResponseEntity<?> deleteLostFoundImage(@PathVariable Long itemId) {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
+
         try {
             LostFoundItem item = lostFoundItemRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("Item not found"));
 
-            // Verify ownership
+            // Verify ownership using JWT-derived userId
             if (!item.getPostedBy().getId().equals(userId)) {
                 return ResponseEntity.status(403).body("You don't have permission to delete this file");
             }
@@ -196,12 +215,17 @@ public class FileManagementController {
     }
 
     @DeleteMapping("/book/{bookId}/photo")
-    public ResponseEntity<?> deleteBookPhoto(@PathVariable Long bookId, @RequestParam Long userId) {
+    public ResponseEntity<?> deleteBookPhoto(@PathVariable Long bookId) {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
+
         try {
             Book book = bookRepository.findById(bookId)
                 .orElseThrow(() -> new RuntimeException("Book not found"));
 
-            // Verify ownership
+            // Verify ownership using JWT-derived userId
             if (!book.getOwnerId().equals(userId)) {
                 return ResponseEntity.status(403).body("You don't have permission to delete this file");
             }
@@ -225,12 +249,17 @@ public class FileManagementController {
     }
 
     @DeleteMapping("/book/{bookId}/pdf")
-    public ResponseEntity<?> deleteBookPdf(@PathVariable Long bookId, @RequestParam Long userId) {
+    public ResponseEntity<?> deleteBookPdf(@PathVariable Long bookId) {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
+
         try {
             Book book = bookRepository.findById(bookId)
                 .orElseThrow(() -> new RuntimeException("Book not found"));
 
-            // Verify ownership
+            // Verify ownership using JWT-derived userId
             if (!book.getOwnerId().equals(userId)) {
                 return ResponseEntity.status(403).body("You don't have permission to delete this file");
             }
@@ -255,12 +284,17 @@ public class FileManagementController {
     }
 
     @DeleteMapping("/chatbot-upload/{uploadId}")
-    public ResponseEntity<?> deleteChatbotUpload(@PathVariable Long uploadId, @RequestParam Long userId) {
+    public ResponseEntity<?> deleteChatbotUpload(@PathVariable Long uploadId) {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
+
         try {
             ChatbotUpload upload = chatbotUploadRepository.findById(uploadId)
                 .orElseThrow(() -> new RuntimeException("Upload not found"));
 
-            // Verify ownership
+            // Verify ownership using JWT-derived userId
             if (!upload.getUserId().equals(userId)) {
                 return ResponseEntity.status(403).body("You don't have permission to delete this file");
             }

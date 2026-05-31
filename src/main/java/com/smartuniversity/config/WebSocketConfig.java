@@ -30,7 +30,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         }
         
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*") // Allow all origins for now
+                .setAllowedOrigins(origins)
                 .withSockJS()
                 .setStreamBytesLimit(512 * 1024)
                 .setHttpMessageCacheSize(1000)
@@ -38,6 +38,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         
         // Also add endpoint without SockJS for native WebSocket support
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*");
+                .setAllowedOrigins(origins);
     }
 }

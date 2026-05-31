@@ -18,12 +18,19 @@ public class TokenController {
     @Autowired
     private TokenService tokenService;
 
+    @Autowired
+    private AuthUtils authUtils;
+
     /**
-     * Get current token usage for user today
-     * GET /api/tokens/usage/{userId}
+     * Get current token usage for authenticated user
+     * GET /api/tokens/usage
      */
-    @GetMapping("/usage/{userId}")
-    public ResponseEntity<?> getCurrentTokenUsage(@PathVariable Long userId) {
+    @GetMapping("/usage")
+    public ResponseEntity<?> getCurrentTokenUsage() {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
         try {
             var tokenUsage = tokenService.getTokenUsageForToday(userId);
             return ResponseEntity.ok(tokenUsage);
@@ -35,11 +42,15 @@ public class TokenController {
     }
 
     /**
-     * Get token statistics for user
-     * GET /api/tokens/stats/{userId}
+     * Get token statistics for authenticated user
+     * GET /api/tokens/stats
      */
-    @GetMapping("/stats/{userId}")
-    public ResponseEntity<?> getTokenStatistics(@PathVariable Long userId) {
+    @GetMapping("/stats")
+    public ResponseEntity<?> getTokenStatistics() {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
         try {
             var stats = tokenService.getTokenStatistics(userId);
             return ResponseEntity.ok(stats);
@@ -51,13 +62,16 @@ public class TokenController {
     }
 
     /**
-     * Get token usage history for user
-     * GET /api/tokens/history/{userId}?days=7
+     * Get token usage history for authenticated user
+     * GET /api/tokens/history?days=7
      */
-    @GetMapping("/history/{userId}")
+    @GetMapping("/history")
     public ResponseEntity<?> getTokenHistory(
-            @PathVariable Long userId,
             @RequestParam(defaultValue = "30") int days) {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
         try {
             var history = tokenService.getTokenUsageHistory(userId, days);
             return ResponseEntity.ok(history);
@@ -69,13 +83,16 @@ public class TokenController {
     }
 
     /**
-     * Get transaction history for user
-     * GET /api/tokens/transactions/{userId}?limit=50
+     * Get transaction history for authenticated user
+     * GET /api/tokens/transactions?limit=50
      */
-    @GetMapping("/transactions/{userId}")
+    @GetMapping("/transactions")
     public ResponseEntity<?> getTransactionHistory(
-            @PathVariable Long userId,
             @RequestParam(defaultValue = "50") int limit) {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
         try {
             var transactions = tokenService.getTransactionHistory(userId, limit);
             return ResponseEntity.ok(transactions);
@@ -107,13 +124,16 @@ public class TokenController {
     }
 
     /**
-     * Check if user has enough tokens
-     * GET /api/tokens/check/{userId}/{requiredTokens}
+     * Check if authenticated user has enough tokens
+     * GET /api/tokens/check/{requiredTokens}
      */
-    @GetMapping("/check/{userId}/{requiredTokens}")
+    @GetMapping("/check/{requiredTokens}")
     public ResponseEntity<?> checkTokenAvailability(
-            @PathVariable Long userId,
             @PathVariable Long requiredTokens) {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
         try {
             boolean hasEnough = tokenService.hasEnoughTokens(userId, requiredTokens);
             Map<String, Object> response = new HashMap<>();
