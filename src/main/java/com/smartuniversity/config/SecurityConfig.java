@@ -60,7 +60,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/setup/**").permitAll()
                 .requestMatchers("/health", "/api/health/**", "/api/status").permitAll()
                 .requestMatchers("/ws/**").permitAll() // WebSocket endpoints
-                .requestMatchers("/api/upload/**").permitAll() // Image serving endpoints
+                .requestMatchers("/api/upload/image/serve", "/api/upload/pdf/serve", "/api/upload/video/serve").permitAll() // Public image/PDF serving endpoints
                 .requestMatchers("/api/events/approved", "/api/events/upcoming").permitAll()
                 .requestMatchers("/api/events/{id}").permitAll()
                 .requestMatchers("/api/achievements/approved").permitAll()

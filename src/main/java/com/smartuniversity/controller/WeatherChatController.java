@@ -6,6 +6,7 @@ import com.smartuniversity.dto.WeatherResponse;
 import com.smartuniversity.exception.TokenExhaustedException;
 import com.smartuniversity.service.KimiChatService;
 import com.smartuniversity.service.WeatherService;
+import com.smartuniversity.util.AuthUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,15 +20,23 @@ public class WeatherChatController {
 
     private final KimiChatService kimiChatService;
     private final WeatherService weatherService;
+    private final AuthUtils authUtils;
 
-    public WeatherChatController(KimiChatService kimiChatService, WeatherService weatherService) {
+    public WeatherChatController(KimiChatService kimiChatService, WeatherService weatherService, AuthUtils authUtils) {
         this.kimiChatService = kimiChatService;
         this.weatherService = weatherService;
+        this.authUtils = authUtils;
     }
 
     @PostMapping
     public ResponseEntity<WeatherChatResponse> chat(@RequestBody WeatherChatRequest request) {
         try {
+            Long userId = authUtils.getCurrentUserId();
+            if (userId == null) {
+                return ResponseEntity.status(401)
+                        .body(WeatherChatResponse.error("Authentication required"));
+            }
+
             // Validate request
             if (request.getMessage() == null || request.getMessage().trim().isEmpty()) {
                 return ResponseEntity.badRequest()
@@ -42,10 +51,10 @@ public class WeatherChatController {
             // Get current weather data to provide context to AI
             WeatherResponse weatherData = weatherService.getWeather();
 
-            // Call Gemini AI service
+            // Call Kimi AI service with JWT-derived userId
             WeatherChatResponse response = kimiChatService.chat(
                     request.getMessage(),
-                    request.getUserId(),
+                    userId,
                     weatherData
             );
 

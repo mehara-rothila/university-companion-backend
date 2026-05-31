@@ -4,6 +4,7 @@ import com.smartuniversity.dto.ChatbotRequest;
 import com.smartuniversity.dto.ChatbotResponse;
 import com.smartuniversity.exception.TokenExhaustedException;
 import com.smartuniversity.service.KimiChatService;
+import com.smartuniversity.util.AuthUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,25 +18,30 @@ public class GeneralChatbotController {
     @Autowired
     private KimiChatService chatbotService;
 
+    @Autowired
+    private AuthUtils authUtils;
+
     /**
-     * General chat endpoint that supports text, images, and PDFs
-     *
-     * Example request:
-     * {
-     *   "message": "What's in this document?",
-     *   "userId": 123,
-     *   "imageUrls": ["https://s3.amazonaws.com/bucket/image.jpg"],
-     *   "pdfUrls": ["https://s3.amazonaws.com/bucket/document.pdf"]
-     * }
+     * General chat endpoint that supports text, images, and PDFs.
+     * userId is derived from JWT — any client-supplied userId is ignored.
      */
     @PostMapping("/chat")
     public ResponseEntity<ChatbotResponse> chat(@RequestBody ChatbotRequest request) {
         try {
+            Long userId = authUtils.getCurrentUserId();
+            if (userId == null) {
+                return ResponseEntity.status(401)
+                    .body(ChatbotResponse.error("Authentication required"));
+            }
+
             // Validate request
             if (request.getMessage() == null || request.getMessage().trim().isEmpty()) {
                 return ResponseEntity.badRequest()
                     .body(ChatbotResponse.error("Message cannot be empty"));
             }
+
+            // Override client-supplied userId with JWT-derived value
+            request.setUserId(userId);
 
             // Process chat with AI
             ChatbotResponse response = chatbotService.chat(request);
