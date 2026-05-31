@@ -3,7 +3,7 @@ package com.smartuniversity.controller;
 import com.smartuniversity.dto.ChatbotRequest;
 import com.smartuniversity.dto.ChatbotResponse;
 import com.smartuniversity.exception.TokenExhaustedException;
-import com.smartuniversity.service.GeneralChatbotService;
+import com.smartuniversity.service.KimiChatService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 public class GeneralChatbotController {
 
     @Autowired
-    private GeneralChatbotService chatbotService;
+    private KimiChatService chatbotService;
 
     /**
      * General chat endpoint that supports text, images, and PDFs

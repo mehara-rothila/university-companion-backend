@@ -4,7 +4,7 @@ import com.smartuniversity.dto.WeatherChatRequest;
 import com.smartuniversity.dto.WeatherChatResponse;
 import com.smartuniversity.dto.WeatherResponse;
 import com.smartuniversity.exception.TokenExhaustedException;
-import com.smartuniversity.service.GeminiChatService;
+import com.smartuniversity.service.KimiChatService;
 import com.smartuniversity.service.WeatherService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,11 +17,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/weather/chat")
 public class WeatherChatController {
 
-    private final GeminiChatService geminiChatService;
+    private final KimiChatService kimiChatService;
     private final WeatherService weatherService;
 
-    public WeatherChatController(GeminiChatService geminiChatService, WeatherService weatherService) {
-        this.geminiChatService = geminiChatService;
+    public WeatherChatController(KimiChatService kimiChatService, WeatherService weatherService) {
+        this.kimiChatService = kimiChatService;
         this.weatherService = weatherService;
     }
 
@@ -34,7 +34,7 @@ public class WeatherChatController {
                         .body(WeatherChatResponse.error("Message cannot be empty"));
             }
 
-            if (request.getMessage().length() > GeminiChatService.MAX_MESSAGE_LENGTH) {
+            if (request.getMessage().length() > KimiChatService.MAX_MESSAGE_LENGTH) {
                 return ResponseEntity.badRequest()
                         .body(WeatherChatResponse.error("Message too long. Maximum " + GeminiChatService.MAX_MESSAGE_LENGTH + " characters allowed."));
             }
@@ -43,7 +43,7 @@ public class WeatherChatController {
             WeatherResponse weatherData = weatherService.getWeather();
 
             // Call Gemini AI service
-            WeatherChatResponse response = geminiChatService.chat(
+            WeatherChatResponse response = kimiChatService.chat(
                     request.getMessage(),
                     request.getUserId(),
                     weatherData
