@@ -3,6 +3,7 @@ package com.smartuniversity.controller;
 import com.smartuniversity.model.ChatbotUpload;
 import com.smartuniversity.repository.ChatbotUploadRepository;
 import com.smartuniversity.service.S3Service;
+import com.smartuniversity.util.AuthUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,11 +23,19 @@ public class ChatbotUploadController {
     @Autowired
     private S3Service s3Service;
 
+    @Autowired
+    private AuthUtils authUtils;
+
     @PostMapping
     public ResponseEntity<?> saveUpload(@RequestBody Map<String, Object> uploadData) {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
+
         try {
             ChatbotUpload upload = new ChatbotUpload();
-            upload.setUserId(Long.valueOf(uploadData.get("userId").toString()));
+            upload.setUserId(userId); // Derive from JWT, ignore client-supplied userId
             upload.setFileUrl((String) uploadData.get("fileUrl"));
             upload.setFileName((String) uploadData.get("fileName"));
             upload.setFileType(ChatbotUpload.FileType.valueOf(((String) uploadData.get("fileType")).toUpperCase()));
@@ -50,12 +59,17 @@ public class ChatbotUploadController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteUpload(@PathVariable Long id, @RequestParam Long userId) {
+    public ResponseEntity<?> deleteUpload(@PathVariable Long id) {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
+
         try {
             ChatbotUpload upload = chatbotUploadRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Upload not found"));
 
-            // Verify ownership
+            // Verify ownership using JWT-derived userId
             if (!upload.getUserId().equals(userId)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized"));
             }

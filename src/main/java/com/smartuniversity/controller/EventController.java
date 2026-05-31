@@ -718,9 +718,14 @@ public class EventController {
         }
     }
 
-    // Check if user is registered
+    // Check if current user is registered
     @GetMapping("/{eventId}/is-registered")
-    public ResponseEntity<?> isUserRegistered(@PathVariable Long eventId, @RequestParam Long userId) {
+    public ResponseEntity<?> isUserRegistered(@PathVariable Long eventId) {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
+
         try {
             Optional<EventRegistration> registration = registrationRepository.findByEventIdAndUserId(eventId, userId);
             boolean isRegistered = registration.isPresent() && registration.get().getStatus() == RegistrationStatus.REGISTERED;
@@ -751,9 +756,14 @@ public class EventController {
         }
     }
 
-    // Get user's registered events
-    @GetMapping("/user/{userId}/registered")
-    public ResponseEntity<?> getUserRegisteredEvents(@PathVariable Long userId) {
+    // Get current user's registered events
+    @GetMapping("/user/registered")
+    public ResponseEntity<?> getUserRegisteredEvents() {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
+
         try {
             List<EventRegistration> registrations = registrationRepository.findByUserIdAndStatusOrderByRegisteredAtDesc(
                 userId, RegistrationStatus.REGISTERED
@@ -1241,6 +1251,7 @@ public class EventController {
      * Admin only
      */
     @DeleteMapping("/{eventId}/attendance/{userId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> removeAttendance(@PathVariable Long eventId, @PathVariable Long userId) {
         try {
             attendanceRepository.deleteByEventIdAndUserId(eventId, userId);
@@ -1252,11 +1263,25 @@ public class EventController {
     }
 
     /**
-     * Check if user attended an event
+     * Check if user attended an event.
+     * Users can check their own attendance; admins can check anyone's.
      */
     @GetMapping("/{eventId}/attendance/check/{userId}")
-    public ResponseEntity<?> checkAttendance(@PathVariable Long eventId, @PathVariable Long userId) {
+    public ResponseEntity<?> checkAttendance(
+            @PathVariable Long eventId,
+            @PathVariable Long userId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            User currentUser = authUtils.getUserFromAuthHeader(authHeader);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+            }
+
+            // Only allow checking own attendance or admin
+            if (!currentUser.getId().equals(userId) && currentUser.getRole() != User.UserRole.ADMIN) {
+                return ResponseEntity.status(403).body(Map.of("error", "You can only check your own attendance"));
+            }
+
             boolean attended = attendanceRepository.existsByEventIdAndUserId(eventId, userId);
 
             if (attended) {

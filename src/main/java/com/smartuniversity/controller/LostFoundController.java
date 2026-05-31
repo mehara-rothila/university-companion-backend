@@ -245,16 +245,15 @@ public class LostFoundController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/items/user/{userId}")
-    public ResponseEntity<List<LostFoundItemResponse>> getUserItems(@PathVariable Long userId) {
+    @GetMapping("/items/my-items")
+    public ResponseEntity<List<LostFoundItemResponse>> getUserItems() {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(List.of());
+        }
+
         try {
-            Optional<User> userOpt = userRepository.findById(userId);
-
-            if (!userOpt.isPresent()) {
-                return ResponseEntity.notFound().build();
-            }
-
-            List<LostFoundItem> items = lostFoundItemRepository.findByPostedBy(userOpt.get());
+            List<LostFoundItem> items = lostFoundItemRepository.findByPostedBy_Id(userId);
             List<LostFoundItemResponse> response = items.stream()
                     .map(item -> {
                         try {

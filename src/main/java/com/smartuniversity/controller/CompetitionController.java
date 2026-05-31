@@ -482,9 +482,14 @@ public class CompetitionController {
         return new ResponseEntity<>(csv.toString(), headers, HttpStatus.OK);
     }
 
-    // Check if user is enrolled
+    // Check if current user is enrolled
     @GetMapping("/{competitionId}/is-enrolled")
-    public ResponseEntity<?> isUserEnrolled(@PathVariable Long competitionId, @RequestParam Long userId) {
+    public ResponseEntity<?> isUserEnrolled(@PathVariable Long competitionId) {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+        }
+
         boolean isEnrolled = enrollmentRepository.existsByCompetitionIdAndUserIdAndStatus(
             competitionId,
             userId,

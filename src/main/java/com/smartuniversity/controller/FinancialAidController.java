@@ -189,8 +189,13 @@ public class FinancialAidController {
         return ResponseEntity.ok().build();
     }
     
-    @GetMapping("/applications/user/{userId}")
-    public ResponseEntity<List<FinancialAidResponse>> getUserApplications(@PathVariable Long userId) {
+    @GetMapping("/applications/my-applications")
+    public ResponseEntity<List<FinancialAidResponse>> getUserApplications() {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(List.of());
+        }
+
         try {
             Optional<User> userOpt = userRepository.findById(userId);
 
