@@ -36,7 +36,7 @@ public class WeatherChatController {
 
             if (request.getMessage().length() > KimiChatService.MAX_MESSAGE_LENGTH) {
                 return ResponseEntity.badRequest()
-                        .body(WeatherChatResponse.error("Message too long. Maximum " + GeminiChatService.MAX_MESSAGE_LENGTH + " characters allowed."));
+                        .body(WeatherChatResponse.error("Message too long. Maximum " + KimiChatService.MAX_MESSAGE_LENGTH + " characters allowed."));
             }
 
             // Get current weather data to provide context to AI

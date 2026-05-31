@@ -306,25 +306,26 @@ Remember: You represent University of Moratuwa and should embody the values of a
     }
 
     private String buildWeatherSystemPrompt(WeatherResponse weatherData) {
+        var current = weatherData.getCurrent();
         String weatherInfo = """
 Current Weather in Moratuwa, Sri Lanka:
 - Condition: %s
-- Temperature: %.1f°C
-- Feels Like: %.1f°C
+- Temperature: %d°C
+- Feels Like: %d°C
 - Humidity: %d%%
-- Wind Speed: %.1f km/h
+- Wind Speed: %d km/h
 - Pressure: %d hPa
 
 You are Athena Weather, a helpful weather assistant for University of Moratuwa students.
 Provide weather-related advice, suggest appropriate clothing, and give campus-specific tips.
 Be concise but helpful.
 """.formatted(
-                weatherData.getDescription(),
-                weatherData.getTemperature(),
-                weatherData.getFeelsLike(),
-                weatherData.getHumidity(),
-                weatherData.getWindSpeed(),
-                weatherData.getPressure()
+                current.getCondition(),
+                current.getTemperature(),
+                current.getFeelsLike(),
+                current.getHumidity(),
+                current.getWindSpeed(),
+                current.getPressure()
         );
         return weatherInfo;
     }
