@@ -4,7 +4,7 @@ import com.smartuniversity.dto.WeatherChatRequest;
 import com.smartuniversity.dto.WeatherChatResponse;
 import com.smartuniversity.dto.WeatherResponse;
 import com.smartuniversity.exception.TokenExhaustedException;
-import com.smartuniversity.service.KimiChatService;
+import com.smartuniversity.service.GeminiChatService;
 import com.smartuniversity.service.WeatherService;
 import com.smartuniversity.util.AuthUtils;
 import org.springframework.http.HttpStatus;
@@ -18,12 +18,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/weather/chat")
 public class WeatherChatController {
 
-    private final KimiChatService kimiChatService;
+    private final GeminiChatService geminiChatService;
     private final WeatherService weatherService;
     private final AuthUtils authUtils;
 
-    public WeatherChatController(KimiChatService kimiChatService, WeatherService weatherService, AuthUtils authUtils) {
-        this.kimiChatService = kimiChatService;
+    public WeatherChatController(GeminiChatService geminiChatService, WeatherService weatherService, AuthUtils authUtils) {
+        this.geminiChatService = geminiChatService;
         this.weatherService = weatherService;
         this.authUtils = authUtils;
     }
@@ -43,16 +43,16 @@ public class WeatherChatController {
                         .body(WeatherChatResponse.error("Message cannot be empty"));
             }
 
-            if (request.getMessage().length() > KimiChatService.MAX_MESSAGE_LENGTH) {
+            if (request.getMessage().length() > GeminiChatService.MAX_MESSAGE_LENGTH) {
                 return ResponseEntity.badRequest()
-                        .body(WeatherChatResponse.error("Message too long. Maximum " + KimiChatService.MAX_MESSAGE_LENGTH + " characters allowed."));
+                        .body(WeatherChatResponse.error("Message too long. Maximum " + GeminiChatService.MAX_MESSAGE_LENGTH + " characters allowed."));
             }
 
             // Get current weather data to provide context to AI
             WeatherResponse weatherData = weatherService.getWeather();
 
-            // Call Kimi AI service with JWT-derived userId
-            WeatherChatResponse response = kimiChatService.chat(
+            // Call Gemini AI service with JWT-derived userId
+            WeatherChatResponse response = geminiChatService.chat(
                     request.getMessage(),
                     userId,
                     weatherData
