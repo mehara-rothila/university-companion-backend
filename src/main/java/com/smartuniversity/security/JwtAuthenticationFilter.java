@@ -29,10 +29,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getRequestURI();
-        // Skip JWT filter for public endpoints (no trailing slash to match all subpaths)
-        return path.startsWith("/api/chatbot") ||
-               path.startsWith("/api/auth") ||
-               path.startsWith("/api/weather") ||
+        // Only skip where a token is never expected. Do NOT skip /api/chatbot or /api/weather:
+        // those are public at the security layer, but their controllers still read the
+        // authenticated user (authUtils.getCurrentUserId()), so the filter must run to populate
+        // the SecurityContext when a Bearer token is present — otherwise authenticated requests
+        // are treated as anonymous and rejected with 401.
+        return path.startsWith("/api/auth") ||
                path.equals("/health") ||
                "OPTIONS".equalsIgnoreCase(request.getMethod());
     }
