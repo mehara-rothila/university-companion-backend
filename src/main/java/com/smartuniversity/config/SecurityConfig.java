@@ -83,7 +83,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/lost-found/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/books/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/notifications/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/emergency/**").hasRole("ADMIN") // Other emergency endpoints - admin only
+                // Emergency user-actions on alerts a user received — any authenticated user
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/emergency/*/seen", "/api/emergency/*/acknowledge", "/api/emergency/*/dismiss").authenticated()
+                .requestMatchers("/api/emergency/**").hasRole("ADMIN") // Other emergency endpoints (create/manage) - admin only
 
                 // Authenticated user endpoints
                 .anyRequest().authenticated()
