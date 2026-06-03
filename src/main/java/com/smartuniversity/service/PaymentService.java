@@ -3,8 +3,10 @@ package com.smartuniversity.service;
 import com.smartuniversity.config.PaymentConfig;
 import com.smartuniversity.model.FinancialAid;
 import com.smartuniversity.model.FinancialAidDonation;
+import com.smartuniversity.model.User;
 import com.smartuniversity.repository.FinancialAidDonationRepository;
 import com.smartuniversity.repository.FinancialAidRepository;
+import com.smartuniversity.repository.UserRepository;
 import com.stripe.Stripe;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
@@ -29,6 +31,9 @@ public class PaymentService {
     @Autowired
     private FinancialAidDonationRepository donationRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @PostConstruct
     public void init() {
         String secretKey = paymentConfig.getSecretKey();
@@ -44,7 +49,7 @@ public class PaymentService {
      * Confirm a Stripe payment session and update the donation record
      */
     @Transactional
-    public Map<String, Object> confirmStripePayment(String sessionId) {
+    public Map<String, Object> confirmStripePayment(String sessionId, Long donorUserId) {
         Map<String, Object> result = new HashMap<>();
 
         try {
@@ -63,7 +68,8 @@ public class PaymentService {
                 return result;
             }
 
-            Map<String, Object> processResult = processCompletedSession(session);
+            User donor = donorUserId != null ? userRepository.findById(donorUserId).orElse(null) : null;
+            Map<String, Object> processResult = processCompletedSession(session, donor);
             result.putAll(processResult);
             return result;
 
@@ -81,7 +87,7 @@ public class PaymentService {
      * Called from both confirmStripePayment (frontend-driven) and processStripeWebhook (Stripe-driven).
      */
     @Transactional
-    public Map<String, Object> processCompletedSession(Session session) {
+    public Map<String, Object> processCompletedSession(Session session, User donor) {
         Map<String, Object> result = new HashMap<>();
         String sessionId = session.getId();
 
@@ -130,7 +136,12 @@ public class PaymentService {
         if (existingDonation != null) {
             donation = existingDonation;
         } else {
-            donation = new FinancialAidDonation(financialAid, null, amount);
+            donation = new FinancialAidDonation(financialAid, donor, amount);
+        }
+
+        // Record the donor (resolved from the authenticated confirm request) so it shows in donation history
+        if (donor != null) {
+            donation.setDonor(donor);
         }
 
         donation.setAmount(amount);
@@ -215,7 +226,8 @@ public class PaymentService {
             if ("checkout.session.completed".equals(event.getType())) {
                 Session session = (Session) event.getDataObjectDeserializer().getObject().orElse(null);
                 if (session != null) {
-                    processCompletedSession(session);
+                    // Webhook path has no authenticated user; donor stays null here
+                    processCompletedSession(session, null);
                 }
             } else if ("checkout.session.expired".equals(event.getType())) {
                 Session session = (Session) event.getDataObjectDeserializer().getObject().orElse(null);

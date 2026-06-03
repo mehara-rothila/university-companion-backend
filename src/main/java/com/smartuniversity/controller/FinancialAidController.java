@@ -249,7 +249,42 @@ public class FinancialAidController {
             return ResponseEntity.ok(getMockDonationApplications());
         }
     }
-    
+
+    /**
+     * Donation history for the currently authenticated user (their own contributions).
+     */
+    @GetMapping("/donations/my")
+    public ResponseEntity<List<Map<String, Object>>> getMyDonations() {
+        Long userId = authUtils.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(List.of());
+        }
+
+        try {
+            List<FinancialAidDonation> donations = donationRepository.findByDonorIdWithAid(userId);
+            List<Map<String, Object>> response = donations.stream().map(d -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("id", d.getId());
+                m.put("amount", d.getAmount());
+                m.put("status", d.getStatus() != null ? d.getStatus().toString() : null);
+                m.put("message", d.getMessage());
+                m.put("isAnonymous", d.isAnonymous());
+                m.put("transactionId", d.getTransactionId());
+                m.put("createdAt", d.getCreatedAt());
+                FinancialAid aid = d.getFinancialAid();
+                m.put("financialAidId", aid != null ? aid.getId() : null);
+                m.put("financialAidTitle", aid != null ? aid.getTitle() : null);
+                m.put("category", aid != null ? aid.getCategory() : null);
+                return m;
+            }).collect(Collectors.toList());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("Error fetching donations for user " + userId + ": " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.ok(List.of());
+        }
+    }
+
     @PostMapping("/donations")
     public ResponseEntity<?> makeDonation(
             @Valid @RequestBody FinancialAidDonationRequest request,

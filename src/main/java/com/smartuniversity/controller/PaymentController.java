@@ -1,6 +1,7 @@
 package com.smartuniversity.controller;
 
 import com.smartuniversity.service.PaymentService;
+import com.smartuniversity.util.AuthUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +15,9 @@ public class PaymentController {
 
     @Autowired
     private PaymentService paymentService;
+
+    @Autowired
+    private AuthUtils authUtils;
 
     /**
      * Confirm Stripe payment - called by frontend after successful checkout
@@ -34,7 +38,9 @@ public class PaymentController {
             ));
         }
 
-        Map<String, Object> result = paymentService.confirmStripePayment(sessionId);
+        // Derived from the JWT (filter runs for /api/payment); used to attribute the donation to the donor
+        Long userId = authUtils.getCurrentUserId();
+        Map<String, Object> result = paymentService.confirmStripePayment(sessionId, userId);
         return ResponseEntity.ok(result);
     }
 
