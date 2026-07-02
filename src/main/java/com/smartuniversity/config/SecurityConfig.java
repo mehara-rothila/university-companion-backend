@@ -59,6 +59,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/setup/**").permitAll()
                 .requestMatchers("/health", "/api/health/**", "/api/status").permitAll()
+                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll() // API docs (Swagger) for demos
                 .requestMatchers("/ws/**").permitAll() // WebSocket endpoints
                 .requestMatchers("/api/upload/image/serve", "/api/upload/pdf/serve", "/api/upload/video/serve").permitAll() // Public image/PDF serving endpoints
                 .requestMatchers("/api/events/approved", "/api/events/upcoming").permitAll()
