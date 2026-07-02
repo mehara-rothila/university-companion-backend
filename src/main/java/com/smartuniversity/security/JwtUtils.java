@@ -61,6 +61,9 @@ public class JwtUtils {
             System.err.println("JWT token is unsupported: " + e.getMessage());
         } catch (IllegalArgumentException e) {
             System.err.println("JWT claims string is empty: " + e.getMessage());
+        } catch (JwtException e) {
+            // Covers SignatureException and any other JJWT failure (e.g. wrong signing key)
+            System.err.println("JWT token validation failed: " + e.getMessage());
         }
         return false;
     }
