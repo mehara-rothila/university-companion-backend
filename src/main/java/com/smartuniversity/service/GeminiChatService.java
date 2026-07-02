@@ -27,8 +27,8 @@ import java.util.stream.Collectors;
 /**
  * Chat service backed by Google's Gemini API (native generateContent endpoint).
  *
- * <p>This mirrors {@link KimiChatService} so the controllers can switch providers
- * without any other changes. It keeps the same public surface — {@code chat(ChatbotRequest)},
+ * <p>This mirrors the previous Kimi (Moonshot) provider so the controllers could switch
+ * providers without any other changes. It keeps the same public surface — {@code chat(ChatbotRequest)},
  * {@code chat(String, Long, WeatherResponse)} and {@code MAX_MESSAGE_LENGTH} — plus the
  * same rate limiting, token accounting, image (vision) and PDF handling.</p>
  *
