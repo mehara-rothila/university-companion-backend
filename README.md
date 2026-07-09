@@ -71,6 +71,14 @@ Admin: `POST /admin/financial-aid/applications/{id}/review` · `GET /admin/finan
 ### Achievements — `/api/achievements`
 `GET /approved` (public feed) · `GET /pending/{adminId}` · `GET /student/{studentId}` · `POST /` · `PUT /{id}/approve/{adminId}` · `PUT /{id}/reject/{adminId}` · `POST /{id}/like` · `DELETE /{id}/unlike`
 
+### Study Spaces — `/api/study-spaces`
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/` | List all study zones with real-time computed consensus occupancy |
+| POST | `/{id}/vote` | Report crowd occupancy (`EMPTY`, `MODERATE`, `CROWDED`) |
+| POST | `/admin/study-spaces` | Admin: Add a new study zone |
+| DELETE | `/admin/study-spaces/{id}` | Admin: Delete an existing study zone |
+
 ### AI Chatbot (Gemini) — `/api/chatbot`
 | Method | Path | Notes |
 |---|---|---|
