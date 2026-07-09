@@ -29,13 +29,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties = {
-    "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
+    // NON_KEYWORDS=YEAR: the User entity has a column named `year`, which H2 treats as a
+    // reserved word. Telling H2 to accept it as a normal identifier lets the `users` table
+    // (and everything referencing it) build without relying on globally_quoted_identifiers.
+    // Global quoting was previously used for this, but it also quoted every columnDefinition
+    // (e.g. "VARCHAR(100)"/"TEXT"), which H2 then read as unknown domain names and failed to
+    // create ~6 tables. Dropping it makes the whole schema generate cleanly.
+    "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;NON_KEYWORDS=YEAR",
     "spring.datasource.driverClassName=org.h2.Driver",
     "spring.datasource.username=sa",
     "spring.datasource.password=",
     "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.jpa.properties.hibernate.globally_quoted_identifiers=true"
+    "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 @AutoConfigureMockMvc
 @Transactional
