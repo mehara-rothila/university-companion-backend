@@ -7,10 +7,16 @@ import com.smartuniversity.dto.ChatbotResponse;
 import com.smartuniversity.dto.WeatherChatResponse;
 import com.smartuniversity.dto.WeatherResponse;
 import com.smartuniversity.exception.TokenExhaustedException;
+import com.smartuniversity.model.IndexedDocument;
 import com.smartuniversity.model.TokenTransaction;
+import com.smartuniversity.service.rag.DocumentIndexService;
+import com.smartuniversity.service.rag.DocumentRetriever;
+import com.smartuniversity.service.rag.RetrievedChunk;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -35,9 +41,15 @@ import java.util.stream.Collectors;
  *
  * <p>The Gemini native API is used (not the OpenAI-compatible endpoint) because the new
  * {@code AQ.}-prefixed API keys currently fail on the OpenAI-compatible endpoint.</p>
+ *
+ * <p>Questions about attached PDFs are answered from the passages that best match the question
+ * (retrieval-augmented generation, see {@link DocumentRetriever}) rather than from each PDF's
+ * full text.</p>
  */
 @Service
 public class GeminiChatService {
+
+    private static final Logger log = LoggerFactory.getLogger(GeminiChatService.class);
 
     private static final String AI_TEMPORARILY_UNAVAILABLE_MESSAGE =
         "Athena is temporarily busy because the AI service is under high demand. Please try again in a few minutes.";
@@ -59,6 +71,10 @@ public class GeminiChatService {
     @Value("${gemini.api.thinking-budget:0}")
     private int thinkingBudget;
 
+    /** When false, PDFs are sent whole (cut at 50,000 characters each) instead of as retrieved excerpts. */
+    @Value("${rag.enabled:true}")
+    private boolean ragEnabled;
+
     private static final int MAX_REQUESTS_PER_HOUR = 50;
     private static final int MAX_WEATHER_REQUESTS_PER_HOUR = 10;
     private static final int MAX_ANONYMOUS_REQUESTS_PER_HOUR = 5;
@@ -68,6 +84,8 @@ public class GeminiChatService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final S3Service s3Service;
+    private final DocumentIndexService documentIndexService;
+    private final DocumentRetriever documentRetriever;
     private final Map<Long, List<Long>> rateLimitMap = new ConcurrentHashMap<>();
     private final Map<Long, List<Long>> weatherRateLimitMap = new ConcurrentHashMap<>();
     private final Map<String, List<Long>> anonymousRateLimitMap = new ConcurrentHashMap<>();
@@ -75,10 +93,13 @@ public class GeminiChatService {
     @Autowired
     private TokenService tokenService;
 
-    public GeminiChatService(RestTemplate restTemplate, ObjectMapper objectMapper, S3Service s3Service) {
+    public GeminiChatService(RestTemplate restTemplate, ObjectMapper objectMapper, S3Service s3Service,
+                             DocumentIndexService documentIndexService, DocumentRetriever documentRetriever) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
         this.s3Service = s3Service;
+        this.documentIndexService = documentIndexService;
+        this.documentRetriever = documentRetriever;
     }
 
     // ==================== General Chat ====================
@@ -173,20 +194,13 @@ public class GeminiChatService {
     private List<Map<String, Object>> buildContents(ChatbotRequest request) throws Exception {
         List<Map<String, Object>> parts = new ArrayList<>();
 
-        // Add text (+ extracted PDF text)
+        // Add text (+ the parts of any attached PDFs that matter for this question)
         StringBuilder textBuilder = new StringBuilder(request.getMessage());
 
         if (request.getPdfUrls() != null && !request.getPdfUrls().isEmpty()) {
-            for (String pdfUrl : request.getPdfUrls()) {
-                try {
-                    String pdfText = extractTextFromPdf(pdfUrl);
-                    if (pdfText != null && !pdfText.trim().isEmpty()) {
-                        textBuilder.append("\n\n--- PDF Content ---\n").append(pdfText).append("\n--- End of PDF ---\n");
-                    }
-                } catch (Exception e) {
-                    System.err.println("Failed to process PDF: " + e.getMessage());
-                }
-            }
+            textBuilder.append(ragEnabled
+                    ? buildPdfExcerpts(request.getMessage(), request.getPdfUrls())
+                    : buildFullPdfText(request.getPdfUrls()));
         }
 
         parts.add(Map.of("text", textBuilder.toString()));
@@ -209,6 +223,67 @@ public class GeminiChatService {
         List<Map<String, Object>> contents = new ArrayList<>();
         contents.add(Map.of("role", "user", "parts", parts));
         return contents;
+    }
+
+    /**
+     * The passages of the attached PDFs that best match the question, labelled with page numbers.
+     * PDFs are indexed the first time they are asked about. If indexing or retrieval fails (for
+     * example the embeddings API is down), the full PDF text is sent instead so the chat still works.
+     */
+    private String buildPdfExcerpts(String question, List<String> pdfUrls) {
+        try {
+            List<IndexedDocument> documents = new ArrayList<>();
+            for (String pdfUrl : pdfUrls) {
+                String s3Key = s3Service.extractFileNameFromUrl(pdfUrl);
+                if (s3Key == null) {
+                    throw new IllegalArgumentException("Only files uploaded to our storage are supported");
+                }
+                documents.add(documentIndexService.indexIfNeeded(s3Key));
+            }
+            List<RetrievedChunk> excerpts = documentRetriever.retrieve(question, documents);
+            log.info("PDF question: sending {} excerpts from {} PDF(s)", excerpts.size(), documents.size());
+            return formatExcerpts(excerpts, documents.size());
+        } catch (Exception e) {
+            log.warn("PDF retrieval failed, sending the full PDF text instead", e);
+            return buildFullPdfText(pdfUrls);
+        }
+    }
+
+    private static String formatExcerpts(List<RetrievedChunk> excerpts, int pdfCount) {
+        if (excerpts.isEmpty()) {
+            return "\n\n--- PDF note ---\nThe attached PDF has no extractable text (it may be a scanned image), "
+                    + "so its contents can't be read. Tell the student this.\n--- End of note ---\n";
+        }
+
+        boolean severalPdfs = pdfCount > 1;
+        StringBuilder text = new StringBuilder("\n\n--- PDF excerpts ---\n")
+                .append("These are the parts of the student's ").append(severalPdfs ? "PDFs" : "PDF")
+                .append(" most relevant to the question. Answer from them and cite the page for each point, like ")
+                .append(severalPdfs ? "(PDF 1, p. 4)" : "(p. 4)")
+                .append(". If they don't cover the question, say so instead of guessing.\n");
+        for (RetrievedChunk excerpt : excerpts) {
+            text.append("\n[")
+                    .append(severalPdfs ? "PDF " + excerpt.documentNumber() + ", " : "")
+                    .append("p. ").append(excerpt.pageNumber()).append("]\n")
+                    .append(excerpt.text()).append('\n');
+        }
+        return text.append("--- End of excerpts ---\n").toString();
+    }
+
+    /** The whole text of every PDF, cut at 50,000 characters each: used when RAG is off or fails. */
+    private String buildFullPdfText(List<String> pdfUrls) {
+        StringBuilder text = new StringBuilder();
+        for (String pdfUrl : pdfUrls) {
+            try {
+                String pdfText = extractTextFromPdf(pdfUrl);
+                if (pdfText != null && !pdfText.trim().isEmpty()) {
+                    text.append("\n\n--- PDF Content ---\n").append(pdfText).append("\n--- End of PDF ---\n");
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to process PDF: " + e.getMessage());
+            }
+        }
+        return text.toString();
     }
 
     // ==================== API Call ====================
@@ -351,7 +426,7 @@ You are Athena, the AI assistant for University of Moratuwa. You are a knowledge
 
 📄 **FILE HANDLING:**
 - When students upload images, describe what you see and provide relevant insights
-- When students upload PDFs, analyze the content and answer questions about it
+- When students upload PDFs, you receive the passages most relevant to their question, labelled with page numbers; answer from them and cite the pages
 - Extract key information and help students understand their documents
 - Offer to help with assignments, notes, forms, or any academic documents
 
