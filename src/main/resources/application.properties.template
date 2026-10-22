@@ -28,3 +28,6 @@ aws.access-key-id=${AWS_ACCESS_KEY_ID:your_access_key_here}
 aws.secret-access-key=${AWS_SECRET_ACCESS_KEY:your_secret_key_here}
 aws.region=${AWS_REGION:us-east-1}
 aws.s3.bucket-name=${AWS_S3_BUCKET:thirdyearproject}
+
+# PDF questions (RAG). Optional; false sends each PDF's full text instead of retrieved excerpts.
+rag.enabled=${RAG_ENABLED:true}
