@@ -23,6 +23,7 @@ Spring Boot REST API for the Smart University Companion (L3 Individual Project, 
 | Storage | AWS S3 (AWS SDK) |
 | Realtime | Spring WebSocket + STOMP (in-memory broker) |
 | AI Chatbot | Google Gemini (`generateContent`), default `gemini-3.5-flash` |
+| PDF Q&A (RAG) | `gemini-embedding-2` embeddings, cosine-similarity retrieval over PDF chunks, page-cited answers |
 | Other | Stripe (payments), Spring Mail (Brevo SMTP), Apache PDFBox, SpringDoc/OpenAPI 3 |
 
 ## API Endpoints
@@ -82,7 +83,7 @@ Admin: `POST /admin/financial-aid/applications/{id}/review` · `GET /admin/finan
 ### AI Chatbot (Gemini) — `/api/chatbot`
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/chat` | `{ message, imageUrls?, pdfUrls? }` — text + vision + PDF, JWT required |
+| POST | `/chat` | `{ message, imageUrls?, pdfUrls? }` — text + vision + PDF (answered from retrieved excerpts, see [How PDF questions work](#how-pdf-questions-work-rag)), JWT required |
 | POST | `/uploads` | Track a chatbot file upload |
 | GET | `/health` | Public health check |
 
@@ -105,6 +106,37 @@ Admin: `POST /admin/financial-aid/applications/{id}/review` · `GET /admin/finan
 
 // POST /api/financial-aid/admin/applications/{id}/review
 { "status": "APPROVED", "reviewNotes": "Meets criteria", "approvedAmount": 5000.00 }
+```
+
+## How PDF questions work (RAG)
+
+When a student attaches a PDF, Athena doesn't paste the whole file into the prompt. It answers from the passages that match the question:
+
+1. **Index** (first question about a PDF only): read the PDF page by page, split each page into ~1,200-character chunks that overlap by 200, embed them with `gemini-embedding-2` (768 dimensions) and store them in `indexed_documents` and `document_chunks`.
+2. **Retrieve**: embed the question, score every chunk of the attached PDFs by cosine similarity and keep the best 6, labelled with their page numbers.
+3. **Answer**: Gemini answers from those excerpts and cites pages, like (p. 4).
+
+If indexing or retrieval fails, the chat falls back to sending the PDF's text. Deleting an upload also deletes its stored chunks. The code is in `service/rag/`.
+
+**Measured** with `PdfRagTokenComparisonTest` on a 15-page paper and five questions: prompt tokens fell from 64,930 to 10,545 (6.2× fewer), and the passage containing the answer was retrieved for all five.
+
+| Setting | Default | Notes |
+|---|---|---|
+| `rag.enabled` | `true` | `false` sends each PDF's full text instead (env var `RAG_ENABLED`) |
+| `rag.top-k` | `6` | Chunks sent per question |
+| `rag.chunk-size` / `rag.chunk-overlap` | `1200` / `200` | Characters |
+| `rag.max-pages` / `rag.max-chunks` | `300` / `800` | Indexing limits per PDF |
+| `gemini.embedding.model` / `gemini.embedding.dimensions` | `gemini-embedding-2` / `768` | Changing either re-indexes PDFs on their next question |
+
+Production validates the schema instead of changing it (`ddl-auto=validate`), so the `heroku` profile creates the two tables from `db/rag-schema.sql` at startup. `RagSchemaPostgresTest` checks that script against a real PostgreSQL.
+
+To reproduce the measurement with your own PDF and questions:
+
+```bash
+GEMINI_API_KEY=... RAG_EVAL_PDF=paper.pdf \
+RAG_EVAL_QUESTIONS="What optimizer did they use?|How many layers are there?" \
+RAG_EVAL_EXPECT="Adam|six" \
+mvn test -Dtest=PdfRagTokenComparisonTest
 ```
 
 ## Getting Started
@@ -182,6 +214,8 @@ src/main/java/com/smartuniversity/
 ├── security/       # JwtUtils, JwtAuthenticationFilter
 ├── service/        # GeminiChatService (active), KimiChatService (legacy), S3Service,
 │                   # TokenService, WeatherService, PaymentService, ...
+│   └── rag/        # PDF Q&A: PdfPageReader, TextChunker, GeminiEmbeddingClient,
+│                   # DocumentIndexService, DocumentRetriever
 └── util/           # AuthUtils (current user from JWT)
 src/main/resources/ # application[-local|-heroku].properties (+ .template)
 ```

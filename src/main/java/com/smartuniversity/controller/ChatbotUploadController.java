@@ -3,6 +3,7 @@ package com.smartuniversity.controller;
 import com.smartuniversity.model.ChatbotUpload;
 import com.smartuniversity.repository.ChatbotUploadRepository;
 import com.smartuniversity.service.S3Service;
+import com.smartuniversity.service.rag.DocumentIndexService;
 import com.smartuniversity.util.AuthUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +26,9 @@ public class ChatbotUploadController {
 
     @Autowired
     private AuthUtils authUtils;
+
+    @Autowired
+    private DocumentIndexService documentIndexService;
 
     @PostMapping
     public ResponseEntity<?> saveUpload(@RequestBody Map<String, Object> uploadData) {
@@ -74,10 +78,11 @@ public class ChatbotUploadController {
                 return ResponseEntity.status(403).body(Map.of("error", "Unauthorized"));
             }
 
-            // Delete from S3
+            // Delete from S3, along with any text and embeddings stored for answering questions about it
             if (upload.getFileUrl() != null && !upload.getFileUrl().isEmpty()) {
                 String fileName = s3Service.extractFileNameFromUrl(upload.getFileUrl());
                 s3Service.deleteFile(fileName);
+                documentIndexService.forget(fileName);
             }
 
             // Soft delete
