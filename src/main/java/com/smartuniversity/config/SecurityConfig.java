@@ -21,6 +21,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.web.filter.CorsFilter;
 import org.springframework.core.Ordered;
@@ -34,7 +35,7 @@ public class SecurityConfig {
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @Value("${spring.web.cors.allowed-origins:http://localhost:3000}")
+    @Value("${spring.web.cors.allowed-origins:https://athena.rothila.com,https://www.athena.rothila.com,http://localhost:3000,http://localhost:3001,http://localhost:3002}")
     private String allowedOrigins;
 
     @Bean
@@ -109,7 +110,10 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         // Parse allowed origins from application.properties
-        List<String> origins = Arrays.asList(allowedOrigins.split(","));
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+            .map(String::trim)
+            .filter(origin -> !origin.isEmpty())
+            .collect(Collectors.toList());
 
         // Use allowedOriginPatterns to support wildcards like *.netlify.app
         configuration.setAllowedOriginPatterns(origins);
