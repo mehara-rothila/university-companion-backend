@@ -17,6 +17,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
@@ -37,6 +38,9 @@ import java.util.stream.Collectors;
  */
 @Service
 public class GeminiChatService {
+
+    private static final String AI_TEMPORARILY_UNAVAILABLE_MESSAGE =
+        "Athena is temporarily busy because the AI service is under high demand. Please try again in a few minutes.";
 
     @Value("${gemini.api.key}")
     private String apiKey;
@@ -115,9 +119,12 @@ public class GeminiChatService {
 
         } catch (TokenExhaustedException e) {
             throw e;
+        } catch (RestClientResponseException e) {
+            System.err.println("Gemini API request failed: " + e.getStatusCode() + " " + e.getStatusText());
+            return ChatbotResponse.error(toFriendlyProviderError(e));
         } catch (Exception e) {
             e.printStackTrace();
-            return ChatbotResponse.error("Failed to get response from AI: " + e.getMessage());
+            return ChatbotResponse.error("Athena could not complete that request. Please try again.");
         }
     }
 
@@ -152,8 +159,11 @@ public class GeminiChatService {
 
             return WeatherChatResponse.success(geminiResponse.text);
 
+        } catch (RestClientResponseException e) {
+            System.err.println("Gemini weather request failed: " + e.getStatusCode() + " " + e.getStatusText());
+            return WeatherChatResponse.error(toFriendlyProviderError(e));
         } catch (Exception e) {
-            return WeatherChatResponse.error("Failed to get response from AI: " + e.getMessage());
+            return WeatherChatResponse.error("Athena could not complete that weather request. Please try again.");
         }
     }
 
@@ -262,6 +272,17 @@ public class GeminiChatService {
         }
 
         throw new Exception("No valid response from Gemini API");
+    }
+
+    private String toFriendlyProviderError(RestClientResponseException e) {
+        int statusCode = e.getStatusCode().value();
+        if (statusCode == 503 || statusCode == 429) {
+            return AI_TEMPORARILY_UNAVAILABLE_MESSAGE;
+        }
+        if (statusCode == 401 || statusCode == 403) {
+            return "Athena is not configured correctly right now. Please contact an administrator.";
+        }
+        return "Athena could not reach the AI service. Please try again later.";
     }
 
     // ==================== Helpers ====================
