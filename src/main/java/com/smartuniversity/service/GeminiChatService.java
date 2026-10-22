@@ -163,6 +163,7 @@ public class GeminiChatService {
             System.err.println("Gemini weather request failed: " + e.getStatusCode() + " " + e.getStatusText());
             return WeatherChatResponse.error(toFriendlyProviderError(e));
         } catch (Exception e) {
+            e.printStackTrace();
             return WeatherChatResponse.error("Athena could not complete that weather request. Please try again.");
         }
     }
