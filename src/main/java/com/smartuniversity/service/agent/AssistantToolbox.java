@@ -70,7 +70,7 @@ public class AssistantToolbox {
             }
             return Map.of("result", result);
         } catch (IllegalArgumentException e) {
-            return Map.of("error", e.getMessage());
+            return Map.of("error", e.getMessage() != null ? e.getMessage() : "The arguments for " + name + " were not valid.");
         } catch (Exception e) {
             log.warn("Assistant tool {} failed", name, e);
             return Map.of("error", "This lookup failed, so tell the student you couldn't check it right now.");

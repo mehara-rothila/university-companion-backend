@@ -67,6 +67,16 @@ class AssistantToolboxTest {
     }
 
     @Test
+    void explainsBadArgumentsEvenWithoutAMessage() {
+        AssistantToolbox toolbox = new AssistantToolbox(List.of(
+                tool("strict", Map.of(), (args, userId) -> {
+                    throw new IllegalArgumentException();
+                })), objectMapper);
+
+        assertEquals(Map.of("error", "The arguments for strict were not valid."), toolbox.call("strict", null, 1L));
+    }
+
+    @Test
     void turnsFailuresIntoAnErrorInsteadOfThrowing() {
         AssistantToolbox toolbox = new AssistantToolbox(List.of(
                 tool("broken", Map.of(), (args, userId) -> {
