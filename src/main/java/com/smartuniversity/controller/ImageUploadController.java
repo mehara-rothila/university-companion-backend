@@ -1,6 +1,7 @@
 package com.smartuniversity.controller;
 
 import com.smartuniversity.service.S3Service;
+import com.smartuniversity.service.rag.DocumentIndexService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -29,6 +30,9 @@ public class ImageUploadController {
 
     @Autowired
     private S3Service s3Service;
+
+    @Autowired
+    private DocumentIndexService documentIndexService;
 
     @PostMapping("/image")
     public ResponseEntity<?> uploadImage(@RequestParam("file") MultipartFile file,
@@ -271,6 +275,7 @@ public class ImageUploadController {
             String fileName = s3Service.extractFileNameFromUrl(pdfUrl);
             if (fileName != null) {
                 s3Service.deleteFile(fileName);
+                documentIndexService.forget(fileName);
                 return ResponseEntity.ok("PDF deleted successfully");
             } else {
                 return ResponseEntity.badRequest().body("Invalid PDF URL");
