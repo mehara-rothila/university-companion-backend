@@ -11,6 +11,9 @@ public interface ChatbotUploadRepository extends JpaRepository<ChatbotUpload, Lo
 
     List<ChatbotUpload> findByUserIdAndDeletedAtIsNullOrderByUploadedAtDesc(Long userId);
 
+    /** Uploads a student has deleted, of one file type. */
+    List<ChatbotUpload> findByDeletedAtIsNotNullAndFileType(ChatbotUpload.FileType fileType);
+
     Long countByUserIdAndDeletedAtIsNull(Long userId);
 
     Long countByUserIdAndFileTypeAndDeletedAtIsNull(Long userId, ChatbotUpload.FileType fileType);
