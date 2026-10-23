@@ -330,7 +330,7 @@ public class FileManagementController {
     /**
      * Deletes a deleted PDF's stored chunks, so its text can't be searched or quoted later. The file
      * itself is already gone, so a failure here is logged rather than failing the request;
-     * {@code DeletedUploadIndexCleanup} retries deleted uploads at startup.
+     * {@code StaleIndexCleanup} removes chunks whose file is gone at the next startup.
      */
     private void forgetStoredChunks(String s3Key) {
         if (s3Key == null) {
