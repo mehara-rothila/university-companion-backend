@@ -11,6 +11,9 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
@@ -32,7 +35,7 @@ public class S3Service {
     @Value("${aws.s3.bucket-name}")
     private String bucketName;
 
-    private S3Client getS3Client() {
+    S3Client getS3Client() {
         AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
         return S3Client.builder()
                 .region(Region.of(region))
@@ -73,6 +76,25 @@ public class S3Service {
                     .build();
 
             s3Client.deleteObject(deleteObjectRequest);
+        }
+    }
+
+    /**
+     * Whether the file is still in the bucket. Only S3's own "not found" counts as gone; when S3
+     * can't be asked (network, credentials) this throws, so a caller never mistakes "couldn't
+     * check" for "deleted".
+     */
+    public boolean fileExists(String fileName) {
+        try (S3Client s3Client = getS3Client()) {
+            s3Client.headObject(HeadObjectRequest.builder().bucket(bucketName).key(fileName).build());
+            return true;
+        } catch (NoSuchKeyException e) {
+            return false;
+        } catch (S3Exception e) {
+            if (e.statusCode() == 404) {
+                return false;
+            }
+            throw e;
         }
     }
 
