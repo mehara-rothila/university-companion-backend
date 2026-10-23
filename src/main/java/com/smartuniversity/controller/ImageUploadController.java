@@ -2,6 +2,8 @@ package com.smartuniversity.controller;
 
 import com.smartuniversity.service.S3Service;
 import com.smartuniversity.service.rag.DocumentIndexService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -27,6 +29,8 @@ import java.util.Map;
 @RequestMapping("/api/upload")
 @PreAuthorize("isAuthenticated()")
 public class ImageUploadController {
+
+    private static final Logger log = LoggerFactory.getLogger(ImageUploadController.class);
 
     @Autowired
     private S3Service s3Service;
@@ -66,7 +70,9 @@ public class ImageUploadController {
         }
     }
 
+    /** Deletes any file in the bucket by URL, so only admins may call it; users delete their own files elsewhere. */
     @DeleteMapping("/image")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteImage(@RequestParam("imageUrl") String imageUrl) {
         try {
             String fileName = s3Service.extractFileNameFromUrl(imageUrl);
@@ -269,13 +275,20 @@ public class ImageUploadController {
         }
     }
 
+    /** Deletes any PDF in the bucket by URL, so only admins may call it; users delete their own files elsewhere. */
     @DeleteMapping("/pdf")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deletePdf(@RequestParam("pdfUrl") String pdfUrl) {
         try {
             String fileName = s3Service.extractFileNameFromUrl(pdfUrl);
             if (fileName != null) {
                 s3Service.deleteFile(fileName);
-                documentIndexService.forget(fileName);
+                try {
+                    documentIndexService.forget(fileName);
+                } catch (Exception e) {
+                    // The file is gone, so StaleIndexCleanup removes these chunks at the next startup.
+                    log.warn("Could not delete the stored chunks of {}", fileName, e);
+                }
                 return ResponseEntity.ok("PDF deleted successfully");
             } else {
                 return ResponseEntity.badRequest().body("Invalid PDF URL");

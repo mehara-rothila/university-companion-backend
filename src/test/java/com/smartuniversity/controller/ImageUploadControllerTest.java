@@ -8,8 +8,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,6 +37,26 @@ class ImageUploadControllerTest {
         assertEquals(200, response.getStatusCode().value());
         verify(s3Service).deleteFile("pdfs/handout.pdf");
         verify(documentIndexService).forget("pdfs/handout.pdf");
+    }
+
+    @Test
+    void aFailedChunkCleanupStillReportsTheDelete() {
+        when(s3Service.extractFileNameFromUrl(PDF_URL)).thenReturn("pdfs/handout.pdf");
+        when(documentIndexService.forget("pdfs/handout.pdf")).thenThrow(new IllegalStateException("database busy"));
+
+        ResponseEntity<?> response = controller.deletePdf(PDF_URL);
+
+        assertEquals(200, response.getStatusCode().value());
+        verify(s3Service).deleteFile("pdfs/handout.pdf");
+    }
+
+    @Test
+    void onlyAdminsMayDeleteFilesByUrl() throws Exception {
+        for (String method : new String[]{"deletePdf", "deleteImage"}) {
+            PreAuthorize rule = ImageUploadController.class.getMethod(method, String.class).getAnnotation(PreAuthorize.class);
+            assertNotNull(rule, method + " needs a role check");
+            assertEquals("hasRole('ADMIN')", rule.value(), method);
+        }
     }
 
     @Test
