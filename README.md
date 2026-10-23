@@ -116,7 +116,7 @@ When a student attaches a PDF, Athena doesn't paste the whole file into the prom
 2. **Retrieve**: embed the question, score every chunk of the attached PDFs by cosine similarity and keep the best 6, labelled with their page numbers.
 3. **Answer**: Gemini answers from those excerpts and cites pages, like (p. 4).
 
-If indexing or retrieval fails, the chat falls back to sending the PDF's text. Deleting an upload also deletes its stored chunks. The code is in `service/rag/`.
+If indexing or retrieval fails, the chat falls back to sending the PDF's text. Deleting a PDF also deletes its stored chunks, whether it's deleted from the chat, the My Uploads page, the library or the upload API. At startup `StaleIndexCleanup` also clears the chunks of uploads already marked deleted and of any PDF whose file is no longer in storage, so a cleanup that failed is retried. The code is in `service/rag/`.
 
 **Measured** with `PdfRagTokenComparisonTest` on a 15-page paper and five questions: prompt tokens fell from 64,930 to 10,545 (6.2× fewer), and the passage containing the answer was retrieved for all five.
 

@@ -142,7 +142,7 @@ class DocumentIndexServiceTest {
         IndexedDocument document = indexed(5L, MODEL);
         when(documentRepository.findByS3Key(KEY)).thenReturn(Optional.of(document));
 
-        service(300).forget(KEY);
+        assertTrue(service(300).forget(KEY));
 
         verify(chunkRepository).deleteByDocumentId(5L);
         verify(documentRepository).delete(document);
@@ -152,7 +152,7 @@ class DocumentIndexServiceTest {
     void forgetIgnoresFilesThatWereNeverIndexed() {
         when(documentRepository.findByS3Key(KEY)).thenReturn(Optional.empty());
 
-        service(300).forget(KEY);
+        assertFalse(service(300).forget(KEY));
 
         verifyNoInteractions(chunkRepository);
         verify(documentRepository, never()).delete(any());

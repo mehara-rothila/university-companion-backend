@@ -8,7 +8,10 @@ import com.smartuniversity.repository.BookRepository;
 import com.smartuniversity.repository.ChatbotUploadRepository;
 import com.smartuniversity.repository.LostFoundItemRepository;
 import com.smartuniversity.service.S3Service;
+import com.smartuniversity.service.rag.DocumentIndexService;
 import com.smartuniversity.util.AuthUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +26,8 @@ import java.util.Map;
 @RequestMapping("/api/files")
 public class FileManagementController {
 
+    private static final Logger log = LoggerFactory.getLogger(FileManagementController.class);
+
     @Autowired
     private LostFoundItemRepository lostFoundItemRepository;
 
@@ -34,6 +39,9 @@ public class FileManagementController {
 
     @Autowired
     private S3Service s3Service;
+
+    @Autowired
+    private DocumentIndexService documentIndexService;
 
     @Autowired
     private AuthUtils authUtils;
@@ -273,6 +281,7 @@ public class FileManagementController {
                 book.setPdfUrl(null);
                 book.setFileSize(null);
                 bookRepository.save(book);
+                forgetStoredChunks(fileName);
 
                 return ResponseEntity.ok("PDF deleted successfully");
             }
@@ -307,6 +316,7 @@ public class FileManagementController {
                 // Soft delete: set deletedAt timestamp instead of hard delete
                 upload.setDeletedAt(java.time.LocalDateTime.now());
                 chatbotUploadRepository.save(upload);
+                forgetStoredChunks(fileName);
 
                 return ResponseEntity.ok("File deleted successfully");
             }
@@ -314,6 +324,22 @@ public class FileManagementController {
             return ResponseEntity.badRequest().body("No file to delete");
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Error deleting file: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Deletes a deleted PDF's stored chunks, so its text can't be searched or quoted later. The file
+     * itself is already gone, so a failure here is logged rather than failing the request;
+     * {@code StaleIndexCleanup} removes chunks whose file is gone at the next startup.
+     */
+    private void forgetStoredChunks(String s3Key) {
+        if (s3Key == null) {
+            return;
+        }
+        try {
+            documentIndexService.forget(s3Key);
+        } catch (Exception e) {
+            log.warn("Could not delete the stored chunks of {}", s3Key, e);
         }
     }
 }
