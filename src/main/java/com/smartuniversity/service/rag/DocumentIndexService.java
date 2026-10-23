@@ -89,13 +89,18 @@ public class DocumentIndexService {
         }
     }
 
-    /** Deletes a PDF's stored chunks, e.g. when its upload is deleted. */
-    public void forget(String s3Key) {
-        transactionTemplate.executeWithoutResult(status ->
-                documentRepository.findByS3Key(s3Key).ifPresent(document -> {
+    /**
+     * Deletes a PDF's stored chunks, e.g. when its upload is deleted. Returns true when the file had
+     * been indexed and its chunks were removed, false when there was nothing stored for it.
+     */
+    public boolean forget(String s3Key) {
+        Boolean removed = transactionTemplate.execute(status ->
+                documentRepository.findByS3Key(s3Key).map(document -> {
                     chunkRepository.deleteByDocumentId(document.getId());
                     documentRepository.delete(document);
-                }));
+                    return true;
+                }).orElse(false));
+        return Boolean.TRUE.equals(removed);
     }
 
     private IndexedDocument save(String s3Key, IndexedDocument stale, PdfPageReader.PdfPages pages,
