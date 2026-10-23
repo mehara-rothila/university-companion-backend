@@ -77,7 +77,15 @@ class RagRetrievalEvalTest {
     private final ObjectMapper objectMapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             .enable(SerializationFeature.INDENT_OUTPUT);
-    private final RestTemplate http = new RestTemplate();
+    private final RestTemplate http = new RestTemplate(requestFactory());
+
+    /** A stalled Gemini call must not hang the evaluation: 10 s to connect, 60 s without data. */
+    private static org.springframework.http.client.SimpleClientHttpRequestFactory requestFactory() {
+        var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(java.time.Duration.ofSeconds(10));
+        factory.setReadTimeout(java.time.Duration.ofSeconds(60));
+        return factory;
+    }
 
     record EvalSet(String description, List<EvalDocument> documents) {
     }
@@ -113,7 +121,8 @@ class RagRetrievalEvalTest {
 
         for (EvalDocument doc : set.documents()) {
             byte[] pdf = Files.readAllBytes(pdfDir.resolve(doc.file()));
-            if (!doc.sha256().equals(sha256(pdf))) {
+            String pdfSha = sha256(pdf);
+            if (!doc.sha256().equals(pdfSha)) {
                 // A re-rendered copy (the RFC has no official PDF) differs byte for byte; the phrase check below
                 // still catches a copy whose text differs.
                 System.out.println("Note: " + doc.file() + " is not byte-identical to the file the questions were written for");
@@ -121,7 +130,8 @@ class RagRetrievalEvalTest {
 
             PdfPageReader.PdfPages pages = new PdfPageReader().read(pdf, 300);
             List<TextChunk> chunks = new TextChunker(CHUNK_SIZE, OVERLAP).chunk(pages.pages());
-            List<float[]> vectors = embeddings.embedChunks(doc.sha256(), chunks);
+            // Cached by the file actually read, so a different copy never reuses another copy's vectors.
+            List<float[]> vectors = embeddings.embedChunks(pdfSha, chunks);
 
             // Every key phrase must be on one of its answer pages, or the question can't be scored fairly.
             List<EvalQuestion> valid = new ArrayList<>();
@@ -310,8 +320,8 @@ class RagRetrievalEvalTest {
                 "model", "models/" + model,
                 "systemInstruction", generateRequest.get("systemInstruction"),
                 "contents", generateRequest.get("contents")));
-        String response = http.postForObject(BASE_URL + "/models/" + model + ":countTokens",
-                new HttpEntity<>(request, headers(apiKey)), String.class);
+        String response = withQuotaRetry(() -> http.postForObject(BASE_URL + "/models/" + model + ":countTokens",
+                new HttpEntity<>(request, headers(apiKey)), String.class));
         return objectMapper.readTree(response).path("totalTokens").asInt();
     }
 
