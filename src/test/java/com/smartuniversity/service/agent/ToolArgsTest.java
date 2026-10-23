@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -87,6 +88,15 @@ class ToolArgsTest {
         assertTrue(ToolArgs.isSearchable("calculator"));
         assertFalse(ToolArgs.isSearchable("the and"));
         assertFalse(ToolArgs.isSearchable("?!"));
+    }
+
+    @Test
+    void ranksBestMatchesFirstAndKeepsTheOrderOfTies() {
+        List<String> items = List.of("red pen", "blue water bottle", "water bottle", "blue cap", "notebook");
+
+        List<String> matches = ToolArgs.bestMatches(items, "blue water bottle", item -> new String[]{item});
+
+        assertEquals(List.of("blue water bottle", "water bottle", "blue cap"), matches);
     }
 
     @Test

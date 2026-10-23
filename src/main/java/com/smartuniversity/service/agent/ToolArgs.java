@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -12,6 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Builds tool schemas and reads tool arguments defensively: the model can send anything, so every
@@ -129,6 +132,24 @@ final class ToolArgs {
     /** True when the query has at least one word that {@link #matchScore} would count. */
     static boolean isSearchable(String query) {
         return matchScore(query, query) > 0;
+    }
+
+    /**
+     * The items that match at least one query word, best match first. Items that match equally
+     * keep their original order, so a list sorted by date stays sorted within each score.
+     */
+    static <T> List<T> bestMatches(List<T> items, String query, Function<T, String[]> fields) {
+        Map<T, Integer> scores = new IdentityHashMap<>();
+        for (T item : items) {
+            int score = matchScore(query, fields.apply(item));
+            if (score > 0) {
+                scores.put(item, score);
+            }
+        }
+        return items.stream()
+                .filter(scores::containsKey)
+                .sorted(Comparator.comparing(scores::get, Comparator.reverseOrder()))
+                .toList();
     }
 
     /** The text cut to max characters, with an ellipsis when it was cut. Null stays null. */
