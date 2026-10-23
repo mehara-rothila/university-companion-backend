@@ -1,0 +1,616 @@
+{
+  "description": "Retrieval test set for Athena's PDF RAG: four public PDFs, ten questions each. Each question names the page(s) that answer it and 1-3 phrases copied from that page. Written and adversarially reviewed by separate agents, then every phrase checked against the page text.",
+  "documents": [
+    {
+      "id": "attention",
+      "file": "attention.pdf",
+      "title": "Attention Is All You Need (Vaswani et al., 2017)",
+      "kind": "research paper",
+      "source": "https://arxiv.org/abs/1706.03762",
+      "sha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+      "pages": 15,
+      "questions": [
+        {
+          "id": "attention-01",
+          "question": "Which author first came up with the idea of swapping out RNNs for self-attention?",
+          "answer": "Jakob Uszkoreit. He also started the work of testing that idea.",
+          "pages": [
+            1
+          ],
+          "key_phrases": [
+            "Jakob proposed replacing RNNs",
+            "the effort to evaluate this idea"
+          ],
+          "type": "fact",
+          "section": "Title page - author contribution footnote"
+        },
+        {
+          "id": "attention-02",
+          "question": "Why can't a recurrent network work on all the positions of a training sentence at once, and why does that hurt more with long sequences?",
+          "answer": "Each hidden state is computed from the previous hidden state plus the current input, so the steps have to run in order. That rules out parallel work inside one training example. With long sequences, memory limits also cut how many examples can be batched together.",
+          "pages": [
+            2
+          ],
+          "key_phrases": [
+            "previous hidden state",
+            "precludes parallelization within",
+            "memory constraints limit batching"
+          ],
+          "type": "concept",
+          "section": "1 Introduction"
+        },
+        {
+          "id": "attention-04",
+          "question": "Why do the authors divide the query-key dot products by the square root of the key dimension before applying softmax?",
+          "answer": "When the key dimension is large, the dot products get very large. That pushes the softmax into regions with extremely small gradients, and scaling by 1/sqrt(d_k) counteracts it. For q and k with independent components of mean 0 and variance 1, the dot product has variance d_k.",
+          "pages": [
+            4
+          ],
+          "key_phrases": [
+            "grow large in magnitude",
+            "extremely small gradients"
+          ],
+          "type": "concept",
+          "section": "3.2.1 Scaled Dot-Product Attention"
+        },
+        {
+          "id": "attention-07",
+          "question": "Why did the authors go with fixed sine and cosine position signals instead of learned position embeddings?",
+          "answer": "Both versions gave nearly identical results. They picked the sinusoidal one because it may let the model extrapolate to sequences longer than any seen during training.",
+          "pages": [
+            6
+          ],
+          "key_phrases": [
+            "nearly identical results",
+            "extrapolate to sequence lengths longer"
+          ],
+          "type": "concept",
+          "section": "3.5 Positional Encoding"
+        },
+        {
+          "id": "attention-09",
+          "question": "Roughly how many sentence pairs were in the English-German training set?",
+          "answer": "About 4.5 million sentence pairs (the WMT 2014 English-German dataset).",
+          "pages": [
+            7
+          ],
+          "key_phrases": [
+            "WMT 2014 English-German dataset",
+            "about 4.5 million"
+          ],
+          "type": "number",
+          "section": "5.1 Training Data and Batching"
+        },
+        {
+          "id": "attention-10",
+          "question": "What does the warmup_steps parameter do in the learning-rate schedule, and what value did they use?",
+          "answer": "The learning rate rises linearly for the first warmup_steps training steps. After that it decays in proportion to the inverse square root of the step number. They set warmup_steps to 4000.",
+          "pages": [
+            7
+          ],
+          "key_phrases": [
+            "increasing the learning rate linearly",
+            "inverse square root of the step number",
+            "warmup_steps = 4000"
+          ],
+          "type": "exact-term",
+          "section": "5.3 Optimizer"
+        },
+        {
+          "id": "attention-12",
+          "question": "What beam size and length penalty were used when decoding translations?",
+          "answer": "A beam size of 4 with a length penalty of alpha = 0.6.",
+          "pages": [
+            8
+          ],
+          "key_phrases": [
+            "beam size of 4",
+            "length penalty α = 0.6"
+          ],
+          "type": "number",
+          "section": "6.1 Machine Translation"
+        },
+        {
+          "id": "attention-14",
+          "question": "In the constituency parsing experiments, what does WSJ refer to?",
+          "answer": "The Wall Street Journal portion of the Penn Treebank, about 40K training sentences.",
+          "pages": [
+            9
+          ],
+          "key_phrases": [
+            "Wall Street Journal (WSJ)",
+            "Penn Treebank"
+          ],
+          "type": "exact-term",
+          "section": "6.3 English Constituency Parsing"
+        },
+        {
+          "id": "attention-15",
+          "question": "Where is the source code for the paper's models published?",
+          "answer": "On GitHub, in the tensor2tensor repository: https://github.com/tensorflow/tensor2tensor.",
+          "pages": [
+            10
+          ],
+          "key_phrases": [
+            "The code we used to train and evaluate",
+            "tensorflow/tensor2tensor"
+          ],
+          "type": "fact",
+          "section": "7 Conclusion"
+        },
+        {
+          "id": "attention-16",
+          "question": "In the attention visualizations at the end of the paper, what language task do the heads that attend from the word 'its' appear to be doing?",
+          "answer": "Anaphora resolution. The two heads (heads 5 and 6, in layer 5 of 6) attend very sharply from the word 'its'.",
+          "pages": [
+            14
+          ],
+          "key_phrases": [
+            "anaphora resolution",
+            "attentions are very sharp"
+          ],
+          "type": "fact",
+          "section": "Attention Visualizations (Figure 4)"
+        }
+      ]
+    },
+    {
+      "id": "oauth2",
+      "file": "rfc6749-oauth2.pdf",
+      "title": "RFC 6749: The OAuth 2.0 Authorization Framework",
+      "kind": "technical standard",
+      "source": "https://www.rfc-editor.org/rfc/rfc6749.txt",
+      "sha256": "e48836a9b19881442ecbd07ffcfdf2cf8f010b610c6d9faa76bf95a11146e00c",
+      "pages": 76,
+      "questions": [
+        {
+          "id": "oauth2-01",
+          "question": "What goes wrong when a user just hands their password to a third-party app, and how does OAuth avoid that?",
+          "answer": "The app has to store the password (often in clear text), servers must keep supporting password logins, the app gets broad access with no way to limit its scope or duration, the user cannot revoke one app without changing the password for every app, and a breach of any app leaks the password and all data behind it. OAuth adds an authorization layer and gives the client its own separate credentials (an access token with a set scope and lifetime) instead of the owner's password.",
+          "pages": [
+            4,
+            5
+          ],
+          "key_phrases": [
+            "gain overly broad access",
+            "introducing an authorization layer"
+          ],
+          "type": "concept",
+          "section": "1. Introduction"
+        },
+        {
+          "id": "oauth2-02",
+          "question": "What do you gain from making clients authenticate at the token endpoint, for example if a client gets hacked?",
+          "answer": "It ties refresh tokens and authorization codes to the client they were issued to. If a client is compromised, the server can disable it or change its credentials, which stops an attacker from using stolen refresh tokens and is much quicker than revoking a whole set of refresh tokens. It also makes regular credential rotation practical.",
+          "pages": [
+            22
+          ],
+          "key_phrases": [
+            "Recovering from a compromised client",
+            "significantly faster than revoking",
+            "periodic credential rotation"
+          ],
+          "type": "concept",
+          "section": "3.2.1. Client Authentication"
+        },
+        {
+          "id": "oauth2-03",
+          "question": "In the implicit flow the token comes back in the URL fragment, which the browser never sends to a server, so how does the client actually get the token out?",
+          "answer": "The browser keeps the fragment locally and follows the redirect to the client's web-hosted resource without it. That resource returns a page (usually HTML with an embedded script) that can read the full redirect URI including the fragment; the browser runs the script, which extracts the access token and passes it to the client.",
+          "pages": [
+            33
+          ],
+          "key_phrases": [
+            "fragment information locally",
+            "which extracts the access token"
+          ],
+          "type": "concept",
+          "section": "4.2. Implicit Grant"
+        },
+        {
+          "id": "oauth2-07",
+          "question": "What does a resource server have to check about an access token before it serves the request?",
+          "answer": "It must validate the token and make sure it has not expired and that its scope covers the resource being requested.",
+          "pages": [
+            48
+          ],
+          "key_phrases": [
+            "ensure that it has not expired",
+            "covers the requested resource"
+          ],
+          "type": "fact",
+          "section": "7. Accessing Protected Resources"
+        },
+        {
+          "id": "oauth2-08",
+          "question": "When a mobile or desktop app sends the user to the system browser to sign in, what ways can it use to get the authorization response back?",
+          "answer": "A redirect URI with a custom scheme registered with the operating system, manual copy-and-paste of the credentials, running a local web server, installing a browser (user-agent) extension, or a redirect URI pointing at a server-hosted resource the client controls, which then passes the response to the app.",
+          "pages": [
+            52
+          ],
+          "key_phrases": [
+            "External user-agent",
+            "running a local web server",
+            "manual copy-and-paste"
+          ],
+          "type": "fact",
+          "section": "9. Native Applications"
+        },
+        {
+          "id": "oauth2-10",
+          "question": "What two kinds of clients does OAuth distinguish, and what decides which kind a client is?",
+          "answer": "Confidential and public clients. It depends on whether the client can keep its credentials secret (or authenticate securely some other way): a client on a secure server is confidential, while an installed native app or a browser-based app is public.",
+          "pages": [
+            14
+          ],
+          "key_phrases": [
+            "OAuth defines two client types",
+            "Clients incapable of maintaining"
+          ],
+          "type": "fact",
+          "section": "2.1. Client Types"
+        },
+        {
+          "id": "oauth2-11",
+          "question": "When does the token endpoint return the invalid_grant error?",
+          "answer": "When the authorization grant (such as an authorization code or the resource owner's credentials) or the refresh token is invalid, expired or revoked, does not match the redirect URI used in the authorization request, or was issued to a different client.",
+          "pages": [
+            45
+          ],
+          "key_phrases": [
+            "invalid_grant",
+            "does not match the redirection"
+          ],
+          "type": "exact-term",
+          "section": "5.2. Error Response"
+        },
+        {
+          "id": "oauth2-12",
+          "question": "What is the x-frame-options header used for in OAuth, and which values can it take?",
+          "answer": "The authorization server can send this non-standard header so newer browsers refuse to load its authorization page inside an iframe, which defends against clickjacking. Its values are \"deny\" (block all framing) and \"sameorigin\" (block framing by sites from a different origin).",
+          "pages": [
+            60
+          ],
+          "key_phrases": [
+            "x-frame-options",
+            "\"deny\" and \"sameorigin\"",
+            "transparent iframe overlaid"
+          ],
+          "type": "exact-term",
+          "section": "10.13. Clickjacking"
+        },
+        {
+          "id": "oauth2-14",
+          "question": "What is the longest an authorization code should stay valid after it is issued?",
+          "answer": "At most 10 minutes is recommended; the code should expire shortly after it is issued.",
+          "pages": [
+            26
+          ],
+          "key_phrases": [
+            "lifetime of 10 minutes",
+            "The authorization code MUST expire"
+          ],
+          "type": "number",
+          "section": "4.1.2. Authorization Response"
+        },
+        {
+          "id": "oauth2-15",
+          "question": "How unlikely does it have to be for an attacker to guess a generated token?",
+          "answer": "The probability must be at most 2^(-128) and should be at most 2^(-160).",
+          "pages": [
+            58
+          ],
+          "key_phrases": [
+            "2^(-128)",
+            "2^(-160)"
+          ],
+          "type": "number",
+          "section": "10.10. Credentials-Guessing Attacks"
+        }
+      ]
+    },
+    {
+      "id": "scheduling",
+      "file": "ostep-cpu-sched.pdf",
+      "title": "Operating Systems: Three Easy Pieces, ch. 7 Scheduling: Introduction",
+      "kind": "textbook chapter",
+      "source": "https://pages.cs.wisc.edu/~remzi/OSTEP/cpu-sched.pdf",
+      "sha256": "0912b1a34977a70704b921ecfdf0dd65300e038a3eb4e5e57b2d9c38f66b63c3",
+      "pages": 13,
+      "questions": [
+        {
+          "id": "scheduling-03",
+          "question": "How do you calculate a job's turnaround time, and why is it the same as the completion time in the first few examples?",
+          "answer": "Turnaround time is completion time minus arrival time. Because all jobs are first assumed to arrive at time 0, the arrival term drops out and turnaround equals completion time.",
+          "pages": [
+            2
+          ],
+          "key_phrases": [
+            "the time at which the job completes",
+            "Tarrival = 0 and hence"
+          ],
+          "type": "concept",
+          "section": "7.2 Scheduling Metrics"
+        },
+        {
+          "id": "scheduling-04",
+          "question": "What is the convoy effect in CPU scheduling?",
+          "answer": "It is when several short jobs get stuck in the queue behind one long, resource-heavy job. An example is FIFO running a 100-second job ahead of two 10-second jobs, which makes the average turnaround time high.",
+          "pages": [
+            3,
+            4
+          ],
+          "key_phrases": [
+            "convoy effect",
+            "heavyweight resource consumer"
+          ],
+          "type": "exact-term",
+          "section": "7.3 First In, First Out (FIFO)"
+        },
+        {
+          "id": "scheduling-06",
+          "question": "With plain SJF, if a 100-second job A arrives at time 0 and jobs B and C (10 seconds each) arrive at time 10, what is the average turnaround time?",
+          "answer": "About 103.33 seconds. B and C have to wait for A to finish, giving (100 + 100 + 110) / 3.",
+          "pages": [
+            5
+          ],
+          "key_phrases": [
+            "103.33 seconds"
+          ],
+          "type": "number",
+          "section": "7.4 Shortest Job First (SJF)"
+        },
+        {
+          "id": "scheduling-07",
+          "question": "What does PSJF stand for, and how does that scheduler choose which job to run?",
+          "answer": "Preemptive Shortest Job First, another name for STCF. It is SJF with preemption added: whenever a new job arrives, it runs whichever job, the new one included, has the least remaining time.",
+          "pages": [
+            6
+          ],
+          "key_phrases": [
+            "Preemptive Shortest Job First (PSJF)",
+            "has the least time left"
+          ],
+          "type": "exact-term",
+          "section": "7.5 Shortest Time-to-Completion First (STCF)"
+        },
+        {
+          "id": "scheduling-09",
+          "question": "In the STCF example where A arrives at time 0 and B and C arrive at time 10, what is the average response time?",
+          "answer": "3.33. A waits 0, B waits 0 and C waits 10.",
+          "pages": [
+            7
+          ],
+          "key_phrases": [
+            "(average: 3.33)",
+            "0 for job A, 0 for B"
+          ],
+          "type": "number",
+          "section": "7.6 A New Metric: Response Time"
+        },
+        {
+          "id": "scheduling-10",
+          "question": "Why shouldn't you just make the Round Robin time slice as short as possible?",
+          "answer": "Shorter slices do improve response time, but if the slice is too short, the cost of context switching takes over overall performance. The slice has to be long enough to amortize the switching cost, but not so long that the system stops being responsive.",
+          "pages": [
+            8
+          ],
+          "key_phrases": [
+            "cost of context switching will dominate",
+            "long enough to amortize the cost"
+          ],
+          "type": "concept",
+          "section": "7.7 Round Robin"
+        },
+        {
+          "id": "scheduling-12",
+          "question": "What does the OS do once a process's I/O request has finished?",
+          "answer": "An interrupt is raised. The OS runs and moves the process that issued the I/O from the blocked state back to the ready state, and it may even choose to run that job right away.",
+          "pages": [
+            9
+          ],
+          "key_phrases": [
+            "an interrupt is raised",
+            "from blocked back to the ready state"
+          ],
+          "type": "fact",
+          "section": "7.8 Incorporating I/O"
+        },
+        {
+          "id": "scheduling-13",
+          "question": "How can an STCF-style scheduler handle a job that computes for a little while, then waits on I/O, over and over, so the processor isn't wasted?",
+          "answer": "It treats each CPU burst (for example, each 10-ms piece of job A) as its own independent job. STCF runs the short burst first, and while that job waits on I/O the CPU-heavy job runs. CPU work and I/O then overlap and the system is better utilized.",
+          "pages": [
+            10
+          ],
+          "key_phrases": [
+            "each CPU burst as a job",
+            "Doing so allows for overlap"
+          ],
+          "type": "concept",
+          "section": "7.8 Incorporating I/O"
+        },
+        {
+          "id": "scheduling-14",
+          "question": "What kind of scheduler does the chapter say will solve the problem of the OS not knowing job lengths in advance, and what idea does it rely on?",
+          "answer": "The multi-level feedback queue, covered in the next chapter. It uses the recent past to predict the future.",
+          "pages": [
+            11
+          ],
+          "key_phrases": [
+            "multi-level feedback queue",
+            "recent past to predict the future"
+          ],
+          "type": "fact",
+          "section": "7.10 Summary"
+        },
+        {
+          "id": "scheduling-16",
+          "question": "What is scheduler.py, and what can it measure?",
+          "answer": "It is the homework simulation program for seeing how different schedulers perform. It reports response time, turnaround time and total wait time.",
+          "pages": [
+            13
+          ],
+          "key_phrases": [
+            "scheduler.py",
+            "total wait time"
+          ],
+          "type": "exact-term",
+          "section": "Homework (Simulation)"
+        }
+      ]
+    },
+    {
+      "id": "nist-auth",
+      "file": "nist-sp800-63b.pdf",
+      "title": "NIST SP 800-63B Digital Identity Guidelines: Authentication and Lifecycle Management",
+      "kind": "security guidelines",
+      "source": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-63b.pdf",
+      "sha256": "ccfce7510a1267933f912d023306c6e7d485f21be63d271108b61aad6139127e",
+      "pages": 80,
+      "questions": [
+        {
+          "id": "nist-auth-01",
+          "question": "What did earlier editions of SP 800-63 call the things this edition calls authenticators?",
+          "answer": "Tokens.",
+          "pages": [
+            13
+          ],
+          "key_phrases": [
+            "called tokens in earlier versions"
+          ],
+          "type": "fact",
+          "section": "2 Introduction"
+        },
+        {
+          "id": "nist-auth-03",
+          "question": "At AAL2, why is a biometric used together with the device it is on enough, without adding a second separate authenticator?",
+          "answer": "A biometric counts as an authentication factor but not as an authenticator on its own, so the device has to be authenticated as well. The device provides 'something you have' and the biometric provides 'something you are', which gives the two factors.",
+          "pages": [
+            18
+          ],
+          "key_phrases": [
+            "a biometric is recognized as a factor",
+            "not recognized as an authenticator"
+          ],
+          "type": "concept",
+          "section": "4.2.1 Permitted Authenticator Types"
+        },
+        {
+          "id": "nist-auth-04",
+          "question": "In the privacy requirements, what does SORN stand for and what does an agency have to publish one for?",
+          "answer": "System of Records Notice. After consulting its Senior Agency Official for Privacy, the agency must publish one, as applicable, to cover collection of PII for issuing or maintaining authenticators when that collection triggers the Privacy Act of 1974.",
+          "pages": [
+            22
+          ],
+          "key_phrases": [
+            "System of Records Notice (SORN)",
+            "Senior Agency Official for Privacy"
+          ],
+          "type": "exact-term",
+          "section": "4.4 Privacy Requirements"
+        },
+        {
+          "id": "nist-auth-07",
+          "question": "Which ways of delivering a login secret are banned outright for out-of-band authentication?",
+          "answer": "Methods that do not prove possession of a specific device, such as VoIP and email.",
+          "pages": [
+            28
+          ],
+          "key_phrases": [
+            "prove possession of a specific device",
+            "voice-over-IP (VOIP)",
+            "SHALL NOT be used for out-of-band"
+          ],
+          "type": "fact",
+          "section": "5.1.3.1 Out-of-Band Authenticators"
+        },
+        {
+          "id": "nist-auth-08",
+          "question": "Unless an authenticator type says otherwise, how many failed login attempts in a row may one account have before the verifier must cut them off?",
+          "answer": "No more than 100 consecutive failed attempts.",
+          "pages": [
+            36
+          ],
+          "key_phrases": [
+            "SHALL limit consecutive failed",
+            "single account to no more than 100"
+          ],
+          "type": "number",
+          "section": "5.2.2 Rate Limiting (Throttling)"
+        },
+        {
+          "id": "nist-auth-10",
+          "question": "Why can't a one-time code that I type into a login page protect me from a fake site pretending to be the real one?",
+          "answer": "Typing the code in does not bind it to the specific session being authenticated, so an impostor site acting as a man-in-the-middle can pass (replay) the code to the real verifier and log in. For this reason OTP and out-of-band authenticators do not count as resistant to verifier impersonation.",
+          "pages": [
+            40
+          ],
+          "key_phrases": [
+            "manual entry does not bind",
+            "replay the OTP authenticator output"
+          ],
+          "type": "concept",
+          "section": "5.2.5 Verifier Impersonation Resistance"
+        },
+        {
+          "id": "nist-auth-11",
+          "question": "If a confirmation code for replacing a forgotten password is mailed to a postal address, how long can it stay valid?",
+          "answer": "At most 7 days. An exception process can extend this to 21 days for addresses outside the direct reach of the U.S. Postal Service.",
+          "pages": [
+            46
+          ],
+          "key_phrases": [
+            "valid for a maximum of 7 days",
+            "to 21 days via an exception process"
+          ],
+          "type": "number",
+          "section": "6.1.2.3 Replacement of a Lost Authentication Factor"
+        },
+        {
+          "id": "nist-auth-14",
+          "question": "What is CSRF, and what does the guideline suggest doing to prevent it?",
+          "answer": "Cross-site request forgery: an attack after login that exploits users having several sessions open at once. The defence is to embed and verify a session identifier in web requests, so a valid URL or request cannot be triggered by accident or by an attacker.",
+          "pages": [
+            58
+          ],
+          "key_phrases": [
+            "cross-site request forgery (CSRF)",
+            "session identifier into web requests"
+          ],
+          "type": "exact-term",
+          "section": "8.4 Session Attacks"
+        },
+        {
+          "id": "nist-auth-15",
+          "question": "What definition of usability does the usability chapter start from?",
+          "answer": "The ISO/IEC 9241-11 definition: how well specified users can use a product to reach specified goals with effectiveness, efficiency and satisfaction in a specified context of use.",
+          "pages": [
+            61
+          ],
+          "key_phrases": [
+            "ISO/IEC 9241-11 defines usability",
+            "efficiency and satisfaction"
+          ],
+          "type": "fact",
+          "section": "10 Usability Considerations"
+        },
+        {
+          "id": "nist-auth-16",
+          "question": "How do people usually react when a site forces them to add capitals, digits and symbols to a password, and why does that make such rules weak?",
+          "answer": "Predictably. For example, 'password' becomes 'Password1' or 'Password1!'. Attackers guess patterns that have worked before, so these rules add little real strength.",
+          "pages": [
+            79
+          ],
+          "key_phrases": [
+            "predictable ways to the requirements",
+            "Password1!",
+            "attackers are likely to guess"
+          ],
+          "type": "concept",
+          "section": "A.3 Complexity"
+        }
+      ]
+    }
+  ]
+}
