@@ -8,10 +8,12 @@ import org.springframework.cache.concurrent.ConcurrentMapCache;
 import org.springframework.cache.support.SimpleCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.util.Arrays;
 
 @Configuration
@@ -21,7 +23,12 @@ public class WeatherConfig {
 
     @Bean
     public RestTemplate restTemplate() {
-        return new RestTemplate();
+        // Stop waiting on a stalled Gemini or weather call: 10 seconds to connect, then a read
+        // fails once no data has arrived for 60 seconds (an idle timeout, not a total deadline).
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofSeconds(10));
+        requestFactory.setReadTimeout(Duration.ofSeconds(60));
+        return new RestTemplate(requestFactory);
     }
 
     @Bean

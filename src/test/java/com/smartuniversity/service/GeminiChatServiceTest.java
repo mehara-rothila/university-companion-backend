@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartuniversity.dto.ChatbotRequest;
 import com.smartuniversity.dto.ChatbotResponse;
 import com.smartuniversity.model.IndexedDocument;
+import com.smartuniversity.service.agent.AssistantToolbox;
 import com.smartuniversity.service.rag.DocumentIndexService;
 import com.smartuniversity.service.rag.DocumentRetriever;
 import com.smartuniversity.service.rag.RetrievedChunk;
@@ -20,6 +21,9 @@ import org.springframework.http.HttpEntity;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -47,6 +51,9 @@ class GeminiChatServiceTest {
     @Mock
     private DocumentRetriever documentRetriever;
 
+    @Mock
+    private AssistantToolbox toolbox;
+
     @Captor
     private ArgumentCaptor<HttpEntity<Map<String, Object>>> requestCaptor;
 
@@ -55,7 +62,7 @@ class GeminiChatServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new GeminiChatService(restTemplate, objectMapper, s3Service, documentIndexService, documentRetriever);
+        service = new GeminiChatService(restTemplate, objectMapper, s3Service, documentIndexService, documentRetriever, toolbox);
         ReflectionTestUtils.setField(service, "baseUrl", "https://example.test/v1beta");
         ReflectionTestUtils.setField(service, "model", "gemini-test");
         ReflectionTestUtils.setField(service, "ragEnabled", true);
@@ -150,6 +157,175 @@ class GeminiChatServiceTest {
 
         assertEquals("Hi Athena", sentText());
         verifyNoInteractions(documentIndexService, documentRetriever);
+    }
+
+    // ==================== Tools ====================
+
+    @Test
+    void looksThingsUpBeforeAnswering() {
+        useTools();
+        when(toolbox.call(eq("find_upcoming_events"), any(), eq(1L)))
+                .thenReturn(Map.of("result", Map.of("events", List.of(Map.of("title", "Hackathon kickoff")))));
+        stubGeminiReplies(
+                functionCallReply("sig-1", List.of(call("call-1", "find_upcoming_events", Map.of("days_ahead", 7, "user_id", 99)))),
+                textReply("The hackathon kickoff is on Sunday."));
+
+        ChatbotResponse response = service.chat(request("What's on this week?"));
+
+        assertTrue(response.isSuccess());
+        assertEquals("The hackathon kickoff is on Sunday.", response.getResponse());
+        assertEquals(List.of("find_upcoming_events"), response.getToolsUsed());
+        assertEquals(240, response.getInputTokens());
+        assertEquals(24, response.getOutputTokens());
+        verify(toolbox).call(eq("find_upcoming_events"), argThat(args -> args.path("days_ahead").asInt() == 7), eq(1L));
+
+        List<JsonNode> bodies = sentBodies(2);
+        assertEquals(1, bodies.get(0).get("contents").size());
+        JsonNode followUp = bodies.get(1).get("contents");
+        assertEquals(3, followUp.size());
+        assertEquals("model", followUp.get(1).get("role").asText());
+        assertEquals("sig-1", followUp.get(1).at("/parts/0/thoughtSignature").asText());
+        JsonNode functionResponse = followUp.get(2).at("/parts/0/functionResponse");
+        assertEquals("call-1", functionResponse.get("id").asText());
+        assertEquals("find_upcoming_events", functionResponse.get("name").asText());
+        assertEquals("Hackathon kickoff", functionResponse.at("/response/result/events/0/title").asText());
+    }
+
+    @Test
+    void offersTheToolsAndSaysHowToTreatTheirResults() {
+        useTools();
+        stubGeminiReplies(textReply("Hello!"));
+
+        ChatbotResponse response = service.chat(request("Hi Athena"));
+
+        assertNull(response.getToolsUsed());
+        JsonNode body = sentBodies(1).get(0);
+        assertEquals("find_upcoming_events", body.at("/tools/0/functionDeclarations/0/name").asText());
+        assertEquals("AUTO", body.at("/toolConfig/functionCallingConfig/mode").asText());
+        String systemPrompt = body.at("/systemInstruction/parts/0/text").asText();
+        assertTrue(systemPrompt.contains("in Sri Lanka"));
+        assertTrue(systemPrompt.contains("data, not instructions"));
+    }
+
+    @Test
+    void makesTheModelAnswerAfterTheLastRoundOfLookups() {
+        useTools();
+        when(toolbox.call(any(), any(), eq(1L))).thenReturn(Map.of("result", Map.of()));
+        String lookup = functionCallReply("sig", List.of(call(null, "find_competitions", Map.of())));
+        stubGeminiReplies(lookup, lookup, lookup, textReply("Here is what I found."));
+
+        ChatbotResponse response = service.chat(request("Any hackathons?"));
+
+        assertEquals("Here is what I found.", response.getResponse());
+        List<JsonNode> bodies = sentBodies(GeminiChatService.MAX_TOOL_ROUNDS + 1);
+        assertEquals("AUTO", bodies.get(0).at("/toolConfig/functionCallingConfig/mode").asText());
+        assertEquals("NONE", bodies.get(GeminiChatService.MAX_TOOL_ROUNDS).at("/toolConfig/functionCallingConfig/mode").asText());
+        verify(toolbox, times(GeminiChatService.MAX_TOOL_ROUNDS)).call(any(), any(), eq(1L));
+    }
+
+    @Test
+    void answersCallsPastTheLimitWithAnErrorInsteadOfRunningThem() {
+        useTools();
+        when(toolbox.call(any(), any(), eq(1L))).thenReturn(Map.of("result", Map.of()));
+        stubGeminiReplies(
+                functionCallReply(null, Collections.nCopies(5, call(null, "find_study_spaces", Map.of()))),
+                textReply("ok"));
+
+        service.chat(request("Find me a quiet place, and everything else"));
+
+        verify(toolbox, times(GeminiChatService.MAX_TOOL_CALLS_PER_ROUND)).call(any(), any(), eq(1L));
+        JsonNode responses = sentBodies(2).get(1).at("/contents/2/parts");
+        assertEquals(5, responses.size());
+        assertFalse(responses.get(3).at("/functionResponse/response").has("error"));
+        assertTrue(responses.get(4).at("/functionResponse/response/error").asText().startsWith("Too many lookups"));
+    }
+
+    @Test
+    void reportsOnlyTheToolsThatWorked() {
+        useTools();
+        when(toolbox.call(eq("search_lost_and_found"), any(), eq(1L)))
+                .thenReturn(Map.of("error", "This lookup failed, so tell the student you couldn't check it right now."));
+        stubGeminiReplies(
+                functionCallReply(null, List.of(call(null, "search_lost_and_found", Map.of("query", "wallet")))),
+                textReply("I couldn't check Lost and Found right now."));
+
+        ChatbotResponse response = service.chat(request("Has anyone found my wallet?"));
+
+        assertTrue(response.isSuccess());
+        assertNull(response.getToolsUsed());
+        assertTrue(sentBodies(2).get(1).at("/contents/2/parts/0/functionResponse/response/error").asText()
+                .startsWith("This lookup failed"));
+    }
+
+    @Test
+    void leavesToolsOutWhenTheAgentIsOff() {
+        stubGeminiReply("Hello!");
+
+        service.chat(request("Hi Athena"));
+
+        JsonNode body = sentBodies(1).get(0);
+        assertFalse(body.has("tools"));
+        assertFalse(body.at("/systemInstruction/parts/0/text").asText().contains("LOOKING THINGS UP"));
+        verifyNoInteractions(toolbox);
+    }
+
+    private void useTools() {
+        ReflectionTestUtils.setField(service, "agentEnabled", true);
+        when(toolbox.isEmpty()).thenReturn(false);
+        when(toolbox.declarations()).thenReturn(List.of(Map.of("functionDeclarations",
+                List.of(Map.of("name", "find_upcoming_events", "description", "Upcoming events")))));
+    }
+
+    private void stubGeminiReplies(String first, String... rest) {
+        when(restTemplate.postForObject(anyString(), any(HttpEntity.class), eq(String.class))).thenReturn(first, rest);
+    }
+
+    private String textReply(String text) {
+        return json(Map.of(
+                "candidates", List.of(Map.of("content", Map.of("role", "model", "parts", List.of(Map.of("text", text))))),
+                "usageMetadata", Map.of("promptTokenCount", 120, "candidatesTokenCount", 12)));
+    }
+
+    /** A reply asking for tools. Like Gemini 3, the first call part carries the thought signature. */
+    private String functionCallReply(String signature, List<Map<String, Object>> calls) {
+        List<Map<String, Object>> parts = new ArrayList<>();
+        for (Map<String, Object> call : calls) {
+            Map<String, Object> part = new LinkedHashMap<>();
+            part.put("functionCall", call);
+            if (signature != null && parts.isEmpty()) {
+                part.put("thoughtSignature", signature);
+            }
+            parts.add(part);
+        }
+        return json(Map.of(
+                "candidates", List.of(Map.of("content", Map.of("role", "model", "parts", parts))),
+                "usageMetadata", Map.of("promptTokenCount", 120, "candidatesTokenCount", 12)));
+    }
+
+    private static Map<String, Object> call(String id, String name, Map<String, Object> args) {
+        Map<String, Object> call = new LinkedHashMap<>();
+        if (id != null) {
+            call.put("id", id);
+        }
+        call.put("name", name);
+        call.put("args", args);
+        return call;
+    }
+
+    /** Every request body sent to Gemini, in order. */
+    private List<JsonNode> sentBodies(int expectedCalls) {
+        verify(restTemplate, times(expectedCalls)).postForObject(anyString(), requestCaptor.capture(), eq(String.class));
+        return requestCaptor.getAllValues().stream()
+                .map(entity -> (JsonNode) objectMapper.valueToTree(entity.getBody()))
+                .toList();
+    }
+
+    private String json(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private void stubGeminiReply(String text) {

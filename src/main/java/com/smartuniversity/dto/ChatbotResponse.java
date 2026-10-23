@@ -1,5 +1,7 @@
 package com.smartuniversity.dto;
 
+import java.util.List;
+
 public class ChatbotResponse {
 
     private boolean success;
@@ -9,6 +11,7 @@ public class ChatbotResponse {
     private Integer inputTokens;
     private Integer outputTokens;
     private String intent;
+    private List<String> toolsUsed;
 
     // Constructors
     public ChatbotResponse() {}
@@ -83,5 +86,14 @@ public class ChatbotResponse {
 
     public void setOutputTokens(Integer outputTokens) {
         this.outputTokens = outputTokens;
+    }
+
+    /** Names of the assistant tools that ran for this answer, such as find_upcoming_events; null when none did. */
+    public List<String> getToolsUsed() {
+        return toolsUsed;
+    }
+
+    public void setToolsUsed(List<String> toolsUsed) {
+        this.toolsUsed = toolsUsed;
     }
 }

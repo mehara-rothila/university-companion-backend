@@ -6,6 +6,7 @@ import com.smartuniversity.dto.ChatbotRequest;
 import com.smartuniversity.model.DocumentChunk;
 import com.smartuniversity.model.IndexedDocument;
 import com.smartuniversity.repository.DocumentChunkRepository;
+import com.smartuniversity.service.agent.AssistantToolbox;
 import com.smartuniversity.service.rag.DocumentIndexService;
 import com.smartuniversity.service.rag.DocumentRetriever;
 import com.smartuniversity.service.rag.GeminiEmbeddingClient;
@@ -106,7 +107,7 @@ class PdfRagTokenComparisonTest {
             return "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"ok\"}]}}]}";
         });
         GeminiChatService chat = new GeminiChatService(recorder, objectMapper, s3Service, indexService,
-                new DocumentRetriever(embeddings, chunkRepository, 6));
+                new DocumentRetriever(embeddings, chunkRepository, 6), new AssistantToolbox(List.of(), objectMapper));
 
         StringBuilder report = new StringBuilder()
                 .append("PDF: ").append(pdfPath.getFileName()).append(", ").append(pages.totalPages())
