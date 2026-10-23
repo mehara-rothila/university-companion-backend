@@ -83,7 +83,7 @@ Admin: `POST /admin/financial-aid/applications/{id}/review` · `GET /admin/finan
 ### AI Chatbot (Gemini) — `/api/chatbot`
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/chat` | `{ message, imageUrls?, pdfUrls? }` — text + vision + PDF (answered from retrieved excerpts, see [How PDF questions work](#how-pdf-questions-work-rag)), JWT required |
+| POST | `/chat` | `{ message, imageUrls?, pdfUrls? }` — text + vision + PDF (answered from retrieved excerpts, see [How PDF questions work](#how-pdf-questions-work-rag)); can look things up first (see [How the assistant looks things up](#how-the-assistant-looks-things-up-tools)) and lists the tools that ran in `toolsUsed`; JWT required |
 | POST | `/uploads` | Track a chatbot file upload |
 | GET | `/health` | Public health check |
 
@@ -137,6 +137,40 @@ GEMINI_API_KEY=... RAG_EVAL_PDF=paper.pdf \
 RAG_EVAL_QUESTIONS="What optimizer did they use?|How many layers are there?" \
 RAG_EVAL_EXPECT="Adam|six" \
 mvn test -Dtest=PdfRagTokenComparisonTest
+```
+
+## How the assistant looks things up (tools)
+
+For signed-in students, the assistant can call tools: read-only lookups it asks for through Gemini function calling. The server runs each one for the user in the JWT and sends the result back, and the model answers from it.
+
+| Tool | Returns |
+|---|---|
+| `find_upcoming_events` | Approved, visible events in the next 1–90 days (default 30), optionally narrowed by keyword |
+| `find_competitions` | Approved competitions that haven't ended, with deadlines, prizes and how to enter |
+| `find_study_spaces` | Study spaces, least crowded first; optionally only quiet ones, or one building |
+| `search_lost_and_found` | Active LOST or FOUND posts that match a description, without who posted them |
+| `get_my_financial_aid_applications` | The student's own applications: status, amounts and dates, without admin notes |
+| `search_my_documents` | Excerpts from the student's 5 newest uploaded PDFs, with file names and pages |
+
+Guardrails:
+
+- Tools only read, and the user id comes from the JWT, never from the model's arguments.
+- A question gets at most 3 rounds of up to 4 calls each. After that, function calling is set to `NONE`, so the model has to answer.
+- Arguments are checked: text is trimmed and capped at 100 characters, numbers are clamped, and bad values come back as an error the model can correct.
+- Results are capped at 8 items with long text clipped. The system prompt says tool results are data, not instructions.
+- A failing tool returns an error instead of failing the chat. Tokens from every round count toward the student's quota.
+
+The code is in `service/agent/`.
+
+| Setting | Default | Notes |
+|---|---|---|
+| `agent.enabled` | `true` | `false` turns tools off, and the chat works as before (env var `AGENT_ENABLED`) |
+
+`AssistantToolsLiveTest` checks tool calling against the real API with three questions: one needing a lookup, one needing two tools, and small talk that needs none. It passes on `gemini-3.5-flash`, `gemini-3.5-flash-lite` and `gemini-3.1-flash-lite`.
+
+```bash
+AGENT_EVAL=1 GEMINI_API_KEY=... GEMINI_MODEL=gemini-3.5-flash \
+mvn test -Dtest=AssistantToolsLiveTest
 ```
 
 ## Getting Started
