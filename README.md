@@ -118,7 +118,22 @@ When a student attaches a PDF, Athena doesn't paste the whole file into the prom
 
 If indexing or retrieval fails, the chat falls back to sending the PDF's text. Deleting a PDF also deletes its stored chunks, whether it's deleted from the chat, the My Uploads page, the library or the upload API. At startup `StaleIndexCleanup` also clears the chunks of uploads already marked deleted and of any PDF whose file is no longer in storage, so a cleanup that failed is retried. The code is in `service/rag/`.
 
-**Measured** with `PdfRagTokenComparisonTest` on a 15-page paper and five questions: prompt tokens fell from 64,930 to 10,545 (6.2× fewer), and the passage containing the answer was retrieved for all five.
+**Measured** on a 40-question test set over four public PDFs (`src/test/resources/rag-eval/`, scored by `RagRetrievalEvalTest`). Each question is tied to the page that answers it and to phrases copied from that page.
+
+| Document | Pages | Questions | Answer chunk in top 6 | MRR | Answer in old full-text prompt | Answer in RAG prompt | Prompt tokens saved |
+|---|---|---|---|---|---|---|---|
+| Attention Is All You Need | 15 | 10 | 10/10 | 0.95 | 10/10 | 10/10 | 6.1× |
+| RFC 6749 (OAuth 2.0) | 76 | 10 | 10/10 | 0.90 | 2/10 | 10/10 | 6.5× |
+| OSTEP ch. 7 (CPU scheduling) | 13 | 10 | 10/10 | 0.74 | 10/10 | 10/10 | 3.9× |
+| NIST SP 800-63B | 80 | 10 | 9/10 | 0.81 | 3/10 | 9/10 | 7.2× |
+| **All** | | **40** | **39/40** | **0.85** | **25/40** | **39/40** | **5.9×** |
+
+- The old full-text prompt cut each PDF at 50,000 characters. On the two long documents it never contained most of the answers. RAG put 39 of the 40 answers in the prompt, with 5.9× fewer prompt tokens (454,039 down to 77,491).
+- Hit@1 is 30/40 and hit@3 is 38/40.
+- The one miss is a wording question: what earlier editions of NIST SP 800-63 called authenticators. The answer page ranked 16th, the kind of exact-wording match keyword search would add.
+- To re-run it, see `src/test/resources/rag-eval/README.md`.
+
+A first single-paper check with `PdfRagTokenComparisonTest` (a 15-page paper, five questions) found 6.2× fewer prompt tokens, with the answer passage retrieved for all five.
 
 | Setting | Default | Notes |
 |---|---|---|
